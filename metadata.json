@@ -1,0 +1,6 @@
+{
+  "name": "creo STUDIO",
+  "description": "Premium multi-disciplinary creative portfolio and AI-powered production agency showcasing elite brand building, cataloging, automation, and visual shoots.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
