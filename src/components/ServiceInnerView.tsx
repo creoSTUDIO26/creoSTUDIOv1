@@ -83,19 +83,10 @@ export default function ServiceInnerView({
 
   // Modal media resolution for shoot services
   const getModalMediaGroup = (item: ServiceSubsection) => {
-    if (item.originalUrls?.length && item.generatedVariants?.length) {
-      return { originalUrls: item.originalUrls, generatedVariants: item.generatedVariants };
-    }
-    const originalUrls = [
-      "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=400",
-      "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&q=80&w=400"
-    ];
-    const generatedVariants = [
-      item.visualUrl,
-      "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800",
-      "https://images.unsplash.com/photo-1496440737103-cd596325d314?auto=format&fit=crop&q=80&w=800"
-    ];
-    return { originalUrls, generatedVariants };
+    return { 
+      originalUrls: item.originalUrls || [], 
+      generatedVariants: item.generatedVariants || [item.visualUrl].filter(Boolean)
+    };
   };
 
   const currentItemIdx = selectedItem ? filteredSubsections.indexOf(selectedItem) : -1;

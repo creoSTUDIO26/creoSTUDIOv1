@@ -1023,7 +1023,11 @@ export default function App() {
                       >
                          <div className="font-black font-display tracking-tighter text-black/20 group-hover:text-white transition-colors uppercase flex items-center justify-between gap-2">
                              <div className="text-xl sm:text-2xl text-black/80 group-hover:text-white transition-colors font-sans truncate pr-2">
-                                {client.logo}
+                                {client.logoImage ? (
+                                  <img src={client.logoImage} alt={client.name} className="h-8 md:h-10 w-auto object-contain" />
+                                ) : (
+                                  client.logo
+                                )}
                              </div>
                              <div className="text-black/10 group-hover:text-white/20 transition-colors shrink-0">
                                 {ClientIcon}
@@ -1382,12 +1386,19 @@ export default function App() {
                     COLLAB // {selectedBrand.collaborationYear}
                   </span>
                 </div>
-                <h3 className="font-display text-2xl md:text-4xl font-bold uppercase tracking-tight text-black">
-                  {selectedBrand.name}
-                </h3>
-                <p className="text-xs md:text-sm font-sans text-black/60 mt-1">
-                  Industry sector: <span className="font-semibold text-black">{selectedBrand.industry}</span>
-                </p>
+                <div className="flex items-center gap-4">
+                  {selectedBrand.logoImage && (
+                    <img src={selectedBrand.logoImage} alt={selectedBrand.name} className="h-10 md:h-14 w-auto object-contain shrink-0" />
+                  )}
+                  <div>
+                    <h3 className="font-display text-2xl md:text-4xl font-bold uppercase tracking-tight text-black">
+                      {selectedBrand.name}
+                    </h3>
+                    <p className="text-xs md:text-sm font-sans text-black/60 mt-1">
+                      Industry sector: <span className="font-semibold text-black">{selectedBrand.industry}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Scrollable Brand Work Gallery */}
