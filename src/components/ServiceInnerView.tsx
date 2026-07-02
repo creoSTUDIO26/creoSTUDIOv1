@@ -20,6 +20,9 @@ const SERVICE_CATEGORIES: Record<string, string[]> = {
   'e-invitation': ['Still Cards', 'Motion Cards', 'Invitation Website'],
   'catalog': ['PDF', 'Website'],
   'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Others'],
+  'automation': ['Email Automation', 'WhatsApp Automation', 'Internal Workflow', 'Chatbots'],
+  'website-design': ['E-Commerce', 'Corporate', 'Landing Pages', 'Portfolio'],
+  'brand-building': ['Brand Identity', 'Strategy', 'Naming', 'Positioning']
 };
 
 const EINVITATION_SUBCATEGORIES = ['Wedding', 'Other Function'];

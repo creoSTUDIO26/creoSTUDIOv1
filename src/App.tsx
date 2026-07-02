@@ -52,6 +52,7 @@ import { supabase } from './lib/supabase';
 
 function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: number, duration?: number, suffix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
+  const hasAnimated = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -59,7 +60,8 @@ function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: numbe
 
     let animationFrame: number;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
+      if (entry.isIntersecting && !hasAnimated.current) {
+        hasAnimated.current = true;
         if (animationFrame) cancelAnimationFrame(animationFrame);
         const endValue = value;
         const start = performance.now();
@@ -98,9 +100,7 @@ function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: numbe
         };
         
         animationFrame = requestAnimationFrame(update);
-      } else {
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-        el.textContent = `0${suffix}`;
+        observer.unobserve(el);
       }
     }, { threshold: 0.15 });
 
@@ -299,22 +299,26 @@ export default function App() {
   // State Initialization from Persistent LocalStorage
   const [services, setServices] = useState<ServiceDetail[]>(() => {
     const saved = localStorage.getItem('creo_services');
-    return saved ? JSON.parse(saved) : SERVICES_DATA;
+    const parsed = saved ? JSON.parse(saved) : null;
+    return parsed && parsed.length > 0 ? parsed : SERVICES_DATA;
   });
 
   const [clients, setClients] = useState<ClientProfile[]>(() => {
     const saved = localStorage.getItem('creo_clients');
-    return saved ? JSON.parse(saved) : CLIENTS_DATA;
+    const parsed = saved ? JSON.parse(saved) : null;
+    return parsed && parsed.length > 0 ? parsed : CLIENTS_DATA;
   });
 
   const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
     const saved = localStorage.getItem('creo_testimonials');
-    return saved ? JSON.parse(saved) : TESTIMONIALS_DATA;
+    const parsed = saved ? JSON.parse(saved) : null;
+    return parsed && parsed.length > 0 ? parsed : TESTIMONIALS_DATA;
   });
 
   const [projects, setProjects] = useState<PortfolioProject[]>(() => {
     const saved = localStorage.getItem('creo_projects');
-    return saved ? JSON.parse(saved) : FEATURED_PROJECTS;
+    const parsed = saved ? JSON.parse(saved) : null;
+    return parsed && parsed.length > 0 ? parsed : FEATURED_PROJECTS;
   });
 
   const [inquiries, setInquiries] = useState<ClientInquiry[]>(() => {
@@ -393,18 +397,22 @@ export default function App() {
       
       const content = data?.content || {};
       
-      // Always use Supabase as the source of truth when available
-      setServices(content.services || []);
-      localStorage.setItem('creo_services', JSON.stringify(content.services || []));
+      // Always use Supabase as the source of truth when available, fallback to default data if missing/empty
+      const loadedServices = content.services && content.services.length > 0 ? content.services : SERVICES_DATA;
+      setServices(loadedServices);
+      localStorage.setItem('creo_services', JSON.stringify(loadedServices));
       
-      setClients(content.clients || []);
-      localStorage.setItem('creo_clients', JSON.stringify(content.clients || []));
+      const loadedClients = content.clients && content.clients.length > 0 ? content.clients : CLIENTS_DATA;
+      setClients(loadedClients);
+      localStorage.setItem('creo_clients', JSON.stringify(loadedClients));
       
-      setTestimonials(content.testimonials || []);
-      localStorage.setItem('creo_testimonials', JSON.stringify(content.testimonials || []));
+      const loadedTestimonials = content.testimonials && content.testimonials.length > 0 ? content.testimonials : TESTIMONIALS_DATA;
+      setTestimonials(loadedTestimonials);
+      localStorage.setItem('creo_testimonials', JSON.stringify(loadedTestimonials));
       
-      setProjects(content.projects || []);
-      localStorage.setItem('creo_projects', JSON.stringify(content.projects || []));
+      const loadedProjects = content.projects && content.projects.length > 0 ? content.projects : FEATURED_PROJECTS;
+      setProjects(loadedProjects);
+      localStorage.setItem('creo_projects', JSON.stringify(loadedProjects));
       
       setInquiries(content.inquiries || []);
       localStorage.setItem('creo_inquiries', JSON.stringify(content.inquiries || []));
@@ -1019,25 +1027,15 @@ export default function App() {
                       <div 
                         key={`${client.id || idx}-${idx}`} 
                         onClick={() => setSelectedBrand(client)}
-                        className="cursor-pointer bg-[#f7f7f7] rounded-none p-6 border border-black/5 flex flex-col justify-between w-[250px] md:w-[300px] h-40 group hover:bg-[#0a0a0a] transition-all duration-500 hover:scale-[1.02] shrink-0"
+                        className="cursor-pointer shrink-0 group transition-transform duration-500 hover:scale-[1.05]"
                       >
-                         <div className="font-black font-display tracking-tighter text-black/20 group-hover:text-white transition-colors uppercase flex items-center justify-between gap-2">
-                             <div className="text-xl sm:text-2xl text-black/80 group-hover:text-white transition-colors font-sans truncate pr-2">
-                                {client.logoImage ? (
-                                  <img src={client.logoImage} alt={client.name} className="h-8 md:h-10 w-auto object-contain" />
-                                ) : (
-                                  client.logo
-                                )}
-                             </div>
-                             <div className="text-black/10 group-hover:text-white/20 transition-colors shrink-0">
-                                {ClientIcon}
-                            </div>
-                         </div>
-                         <div className="mt-4">
-                            <div className="font-mono text-[10px] lg:text-[10px] font-bold text-black/40 group-hover:text-emerald-400 transition-colors tracking-widest uppercase truncate border-t border-black/5 group-hover:border-white/10 pt-4">
-                              {client.industry}
-                            </div>
-                         </div>
+                        {client.logoImage ? (
+                          <img src={client.logoImage} alt={client.name} className="h-28 md:h-40 w-auto object-contain" />
+                        ) : (
+                          <div className="bg-[#f7f7f7] border border-black/5 flex items-center justify-center px-10 h-28 md:h-40 group-hover:bg-gray-100 transition-colors">
+                            <span className="font-black font-display tracking-tighter text-3xl md:text-4xl text-black/40 group-hover:text-black/80 transition-colors uppercase truncate">{client.logo}</span>
+                          </div>
+                        )}
                       </div>
                     )})}
                   </div>

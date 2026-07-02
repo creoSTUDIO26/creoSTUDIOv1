@@ -1075,15 +1075,15 @@ export default function AdminPanel({
                     {/* Category selector */}
                     <div>
                       <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Category{adminCats ? ' *' : ''}</label>
-                      <div className="flex gap-2">
-                        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} disabled={!adminCats && !isShootService} className={`flex-1 bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all ${!adminCats && !isShootService ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <div className="flex flex-col gap-2">
+                        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} disabled={!adminCats && !isShootService} className={`w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all ${!adminCats && !isShootService ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                           {(adminCats || getExistingCategories()).map((cat, idx) => (
                             <option key={idx} value={cat}>{cat}</option>
                           ))}
                           <option value="Custom">+ Create New Category...</option>
                         </select>
                         {newCategory === 'Custom' && (
-                          <input type="text" value={newCustomCategory} onChange={(e) => setNewCustomCategory(e.target.value)} required placeholder="New category name" className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
+                          <input type="text" value={newCustomCategory} onChange={(e) => setNewCustomCategory(e.target.value)} required placeholder="New category name" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
                         )}
                       </div>
                     </div>
@@ -1092,14 +1092,14 @@ export default function AdminPanel({
                     {showSubSubCategory && (
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Event Type</label>
-                        <div className="flex gap-2">
-                          <select value={newSubSubCategory} onChange={(e) => setNewSubSubCategory(e.target.value)} className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer">
+                        <div className="flex flex-col gap-2">
+                          <select value={newSubSubCategory} onChange={(e) => setNewSubSubCategory(e.target.value)} className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer">
                             <option value="Wedding">Wedding</option>
                             <option value="Other Function">Other Function</option>
                             <option value="Custom">+ Custom...</option>
                           </select>
                           {newSubSubCategory === 'Custom' && (
-                            <input type="text" onChange={(e) => setNewSubSubCategory(e.target.value)} placeholder="Custom event type" className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
+                            <input type="text" onChange={(e) => setNewSubSubCategory(e.target.value)} placeholder="Custom event type" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
                           )}
                         </div>
                       </div>
