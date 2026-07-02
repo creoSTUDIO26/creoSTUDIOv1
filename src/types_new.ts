@@ -89,8 +89,10 @@ export interface ClientInquiry {
   status: 'unread' | 'contacted' | 'approved';
 }
 
-// Empty defaults — all real data is loaded from Supabase
+// Default High-Fidelity Data
+
 export const SERVICES_DATA: ServiceDetail[] = [];
 export const CLIENTS_DATA: ClientProfile[] = [];
 export const TESTIMONIALS_DATA: Testimonial[] = [];
 export const FEATURED_PROJECTS: PortfolioProject[] = [];
+

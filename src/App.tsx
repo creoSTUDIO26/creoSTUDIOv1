@@ -319,20 +319,7 @@ export default function App() {
 
   const [inquiries, setInquiries] = useState<ClientInquiry[]>(() => {
     const saved = localStorage.getItem('creo_inquiries');
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        id: "demo-inq",
-        name: "Elena Rostova",
-        email: "elena@auracosmetics.co",
-        serviceId: "ai-photo-shoot",
-        scope: "Premium Campaign",
-        message: "Looking for an immediate AI photo shoot for our luxury skincare serum line. We need high fidelity liquid splash render assets. Your 2-day delivery SLA is exactly what we need.",
-        budget: "$5,000 - $10,000",
-        timestamp: "6/18/2026, 11:30:15 AM",
-        status: "unread"
-      }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [selectedBrand, setSelectedBrand] = useState<ClientProfile | null>(null);
@@ -406,26 +393,21 @@ export default function App() {
       
       const content = data?.content || {};
       
-      if (content.services) {
-        setServices(content.services);
-        localStorage.setItem('creo_services', JSON.stringify(content.services));
-      }
-      if (content.clients) {
-        setClients(content.clients);
-        localStorage.setItem('creo_clients', JSON.stringify(content.clients));
-      }
-      if (content.testimonials) {
-        setTestimonials(content.testimonials);
-        localStorage.setItem('creo_testimonials', JSON.stringify(content.testimonials));
-      }
-      if (content.projects) {
-        setProjects(content.projects);
-        localStorage.setItem('creo_projects', JSON.stringify(content.projects));
-      }
-      if (content.inquiries) {
-        setInquiries(content.inquiries);
-        localStorage.setItem('creo_inquiries', JSON.stringify(content.inquiries));
-      }
+      // Always use Supabase as the source of truth when available
+      setServices(content.services || []);
+      localStorage.setItem('creo_services', JSON.stringify(content.services || []));
+      
+      setClients(content.clients || []);
+      localStorage.setItem('creo_clients', JSON.stringify(content.clients || []));
+      
+      setTestimonials(content.testimonials || []);
+      localStorage.setItem('creo_testimonials', JSON.stringify(content.testimonials || []));
+      
+      setProjects(content.projects || []);
+      localStorage.setItem('creo_projects', JSON.stringify(content.projects || []));
+      
+      setInquiries(content.inquiries || []);
+      localStorage.setItem('creo_inquiries', JSON.stringify(content.inquiries || []));
     } catch (err) {
       console.log('Using offline localStorage persistence:', err);
     }
@@ -441,7 +423,7 @@ export default function App() {
   }, []);
 
   // Active hover states (for our elegant Norell services list)
-  const [hoveredServiceId, setHoveredServiceId] = useState<string | null>(SERVICES_DATA[0].id);
+  const [hoveredServiceId, setHoveredServiceId] = useState<string | null>(services[0]?.id || null);
 
   // Contact Collaboration Form State
   const [formName, setFormName] = useState('');
@@ -1099,8 +1081,8 @@ export default function App() {
 
                     {/* Services Stats */}
                     {services.map((service, idx) => {
-                       const count = parseInt(service.count?.toString() || '0', 10);
-                       const maxCount = Math.max(...services.map(s => parseInt(s.count?.toString() || '0', 10)), 1);
+                       const count = service.subsections?.length || 0;
+                       const maxCount = Math.max(...services.map(s => s.subsections?.length || 0), 1);
                        const percent = Math.max((count / maxCount) * 100, 5); // at least 5% so it's visible
                        
                        const radius = 40;
