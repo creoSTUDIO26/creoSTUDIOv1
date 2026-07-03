@@ -23,7 +23,7 @@ import {
   Award,
   Globe
 } from 'lucide-react';
-import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject } from '../types';
+import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial } from '../types';
 import { supabase } from '../lib/supabase';
 
 // Per-service category configs for admin
@@ -78,8 +78,10 @@ interface AdminPanelProps {
   inquiries: ClientInquiry[];
   clients: ClientProfile[];
   projects: PortfolioProject[];
+  testimonials: Testimonial[];
   updateClients: (clients: ClientProfile[]) => Promise<void>;
   updateProjects: (projects: PortfolioProject[]) => Promise<void>;
+  updateTestimonials: (testimonials: Testimonial[]) => Promise<void>;
   onBack: () => void;
   onRefreshData: () => Promise<void>;
   updateServices: (services: ServiceDetail[]) => Promise<void>;
@@ -87,15 +89,17 @@ interface AdminPanelProps {
   resetDatabase: () => Promise<void>;
 }
 
-type Tab = 'dashboard' | 'services' | 'work' | 'inquiries' | 'brands' | 'projects';
+type Tab = 'dashboard' | 'services' | 'work' | 'inquiries' | 'brands' | 'projects' | 'reviews';
 
 export default function AdminPanel({
   services,
   inquiries,
   clients,
   projects,
+  testimonials,
   updateClients,
   updateProjects,
+  updateTestimonials,
   onBack,
   onRefreshData,
   updateServices,
@@ -839,6 +843,22 @@ export default function AdminPanel({
               <LayoutGrid className="w-4 h-4" />
               <span>Landing Projects</span>
             </button>
+
+            <button
+              onClick={() => handleTabSwitch('reviews')}
+              className={`flex items-center justify-between px-4 py-3 rounded-none text-xs font-mono font-bold uppercase tracking-wider transition-all w-full text-left whitespace-nowrap cursor-pointer ${activeTab === 'reviews' ? 'bg-[#007A93] text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-4 h-4" />
+                <span>Reviews</span>
+              </div>
+              {testimonials.length > 0 && (
+                <span className="bg-gray-900 text-white text-[10px] px-2 py-0.5 rounded-none font-bold">
+                  {testimonials.length}
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Main Content Area */}
@@ -871,6 +891,11 @@ export default function AdminPanel({
                   <div className="bg-gray-50 border border-gray-200 rounded-none p-5 text-center">
                     <span className="block font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-1">LEADS</span>
                     <span className="font-display text-3xl font-bold text-[#007A93]">{inquiries.length}</span>
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-none p-5 text-center">
+                    <span className="block font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-1">REVIEWS</span>
+                    <span className="font-display text-3xl font-bold text-[#007A93]">{testimonials.length}</span>
                   </div>
 
                   <div className="bg-gray-50 border border-gray-200 rounded-none p-5 text-center col-span-2 sm:col-span-1">
@@ -1873,6 +1898,66 @@ export default function AdminPanel({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* TAB: REVIEWS */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="border-b border-gray-300 pb-6">
+                  <h2 className="font-display text-2xl font-bold uppercase tracking-tight">Client Reviews</h2>
+                  <p className="text-gray-500 text-xs font-sans mt-1">Manage user-submitted reviews that appear in the 'They Love Us' section.</p>
+                </div>
+
+                {testimonials.length === 0 ? (
+                  <div className="text-center py-20 bg-gray-50 border border-dashed border-gray-300 rounded-none">
+                    <Award className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <h3 className="font-mono text-sm font-bold uppercase tracking-widest text-gray-500 mb-1">No Reviews Yet</h3>
+                    <p className="text-xs text-gray-400 font-sans">User submissions will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {testimonials.map((review) => (
+                      <div key={review.id} className="bg-white border border-gray-200 shadow-sm p-6 flex flex-col gap-4 relative">
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <h4 className="font-display text-lg font-bold text-gray-900 leading-tight">{review.author}</h4>
+                            <p className="text-[10px] font-mono text-[#007A93] uppercase tracking-widest">{review.role} {review.company ? `• ${review.company}` : ''}</p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              if (!window.confirm('Delete this review? It will be removed from the public site.')) return;
+                              try {
+                                await updateTestimonials(testimonials.filter(t => t.id !== review.id));
+                                triggerToast('Review removed.');
+                              } catch (err) {
+                                triggerToast('Failed to remove review.');
+                              }
+                            }}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors rounded-none"
+                            title="Delete Review"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < review.rating ? 'text-black fill-current' : 'text-gray-300 fill-current'}`} viewBox="0 0 24 24">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          ))}
+                        </div>
+
+                        {review.text && (
+                          <p className="text-xs text-gray-600 font-sans leading-relaxed italic border-l-2 border-gray-200 pl-3">
+                            "{review.text}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

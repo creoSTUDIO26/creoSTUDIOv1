@@ -48,6 +48,7 @@ import Header from './components/Header';
 import ServiceInnerView from './components/ServiceInnerView';
 import ProjectDetailView from './components/ProjectDetailView';
 import AdminPanel from './components/AdminPanel';
+import ReviewPage from './components/ReviewPage';
 import { supabase } from './lib/supabase';
 
 function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: number, duration?: number, suffix?: string }) {
@@ -330,7 +331,7 @@ export default function App() {
   const [serviceParams, setServiceParams] = useState<{subId?: string; brand?: string} | null>(null);
 
   // Custom Hash Router State
-  const [route, setRoute] = useState<{ path: 'home' | 'service' | 'project' | 'admin'; id?: string }>(() => {
+  const [route, setRoute] = useState<{ path: 'home' | 'service' | 'project' | 'admin' | 'review'; id?: string }>(() => {
     const hash = window.location.hash;
     if (hash.startsWith('#/services/')) {
       return { path: 'service', id: hash.replace('#/services/', '') };
@@ -340,6 +341,9 @@ export default function App() {
     }
     if (hash === '#/admin') {
       return { path: 'admin' };
+    }
+    if (hash === '#/review') {
+      return { path: 'review' };
     }
     return { path: 'home' };
   });
@@ -357,6 +361,8 @@ export default function App() {
         setRoute({ path: 'project', id: hash.replace('#/projects/', '') });
       } else if (hash === '#/admin') {
         setRoute({ path: 'admin' });
+      } else if (hash === '#/review') {
+        setRoute({ path: 'review' });
       } else {
         setRoute({ path: 'home' });
       }
@@ -366,13 +372,15 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const navigateTo = (path: 'home' | 'service' | 'project' | 'admin', id?: string) => {
+  const navigateTo = (path: 'home' | 'service' | 'project' | 'admin' | 'review', id?: string) => {
     if (path === 'service' && id) {
       window.location.hash = `#/services/${id}`;
     } else if (path === 'project' && id) {
       window.location.hash = `#/projects/${id}`;
     } else if (path === 'admin') {
       window.location.hash = '#/admin';
+    } else if (path === 'review') {
+      window.location.hash = '#/review';
     } else {
       window.location.hash = '#/';
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -468,6 +476,12 @@ export default function App() {
     setInquiries(newInquiries);
     localStorage.setItem('creo_inquiries', JSON.stringify(newInquiries));
     await saveToSupabase('inquiries', newInquiries);
+  };
+
+  const updateTestimonialsState = async (newTestimonials: Testimonial[]) => {
+    setTestimonials(newTestimonials);
+    localStorage.setItem('creo_testimonials', JSON.stringify(newTestimonials));
+    await saveToSupabase('testimonials', newTestimonials);
   };
 
   // Submit Contact Form handler
@@ -602,7 +616,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Navigation Header */}
-      {route.path !== 'admin' && (
+      {route.path !== 'admin' && route.path !== 'review' && (
         <Header 
           activeServiceId={activeServiceId}
           resetAllViews={resetAllViewsAndScroll}
@@ -620,8 +634,10 @@ export default function App() {
               inquiries={inquiries}
               clients={clients}
               projects={projects}
+              testimonials={testimonials}
               updateClients={updateClientsState}
               updateProjects={updateProjectsState}
+              updateTestimonials={updateTestimonialsState}
               onBack={() => navigateTo('home')}
               onRefreshData={loadDbData}
               updateServices={updateServicesState}
@@ -666,6 +682,17 @@ export default function App() {
                   const el = document.querySelector('#collaboration-contact-form');
                   el?.scrollIntoView({ behavior: 'smooth' });
                 }, 200);
+              }}
+            />
+          ) : route.path === 'review' ? (
+            <ReviewPage 
+              key="review-view"
+              services={services}
+              testimonials={testimonials}
+              onBack={() => navigateTo('home')}
+              onSubmitReview={async (review) => {
+                const newTestimonials = [review, ...testimonials];
+                await updateTestimonialsState(newTestimonials);
               }}
             />
           ) : (

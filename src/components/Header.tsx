@@ -67,6 +67,12 @@ export default function Header({
             >
               About
             </button>
+            <a 
+              href="#/review"
+              className="text-black/60 hover:text-black transition-colors cursor-pointer"
+            >
+              Reviews
+            </a>
           </nav>
         ) : (
           <div className="hidden md:flex flex-1 justify-center items-center gap-3 mt-2">
@@ -137,6 +143,9 @@ export default function Header({
                 <button onClick={() => handleMobileScroll('#brands-section')} className="text-left py-2 text-3xl font-display font-bold text-black flex justify-between items-center group">
                   About <ArrowRight className="w-6 h-6 text-[#007A93] opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-2" />
                 </button>
+                <a href="#/review" onClick={() => setMobileMenuOpen(false)} className="text-left py-2 text-3xl font-display font-bold text-black flex justify-between items-center group">
+                  Reviews <ArrowRight className="w-6 h-6 text-[#007A93] opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-2" />
+                </a>
               </div>
             ) : (
               <button onClick={handleMobileBack} className="text-left py-4 text-lg font-sans font-semibold text-black/60 hover:text-black flex items-center gap-2">

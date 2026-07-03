@@ -215,7 +215,69 @@ export const SERVICES_DATA: ServiceDetail[] = [
 ];
 
 // These are managed entirely via Admin Panel + Supabase
-export const CLIENTS_DATA: ClientProfile[] = [];
-export const TESTIMONIALS_DATA: Testimonial[] = [];
-export const FEATURED_PROJECTS: PortfolioProject[] = [];
+export const CLIENTS_DATA: ClientProfile[] = [
+  { id: "c1", name: "Studio Link", logo: "STUDIOLINK" },
+  { id: "c2", name: "Zentrox", logo: "ZENTROX" },
+  { id: "c3", name: "Core Hue", logo: "COREHUE" },
+  { id: "c4", name: "Elevana", logo: "ELEVANA" },
+  { id: "c5", name: "Nexus", logo: "NEXUS" }
+];
+export const TESTIMONIALS_DATA: Testimonial[] = [
+  {
+    id: "t1",
+    author: "Sarah Jenkins",
+    role: "Marketing Director",
+    company: "Zentrox",
+    content: "Creo Studio completely transformed our digital presence. The 3D integration they implemented skyrocketed our engagement metrics within the first week.",
+    rating: 5,
+    timestamp: new Date().toISOString()
+  },
+  {
+    id: "t2",
+    author: "Marcus Chen",
+    role: "Founder",
+    company: "CoreHue",
+    content: "Working with the Creo team was seamless from start to finish. They didn't just build a website; they crafted an experience that perfectly represents our brand.",
+    rating: 5,
+    timestamp: new Date().toISOString()
+  }
+];
+export const FEATURED_PROJECTS: PortfolioProject[] = [
+  {
+    id: "proj-1",
+    client: "STUDIOLINK",
+    category: "Branding",
+    description: "A complete brand overhaul and digital presence redesign for a leading architectural firm.",
+    image: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&q=80&w=1200",
+    date: "2023",
+    services: ["Brand Strategy", "Visual Identity", "Web Design"]
+  },
+  {
+    id: "proj-2",
+    client: "ZENTROX",
+    category: "UI/UX",
+    description: "Sleek and highly functional user interface for a next-gen fintech application.",
+    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=800",
+    date: "2023",
+    services: ["UI/UX Design", "Prototyping", "Design System"]
+  },
+  {
+    id: "proj-3",
+    client: "COREHUE",
+    category: "Development",
+    description: "High-performance marketing website with integrated 3D experiences.",
+    image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&q=80&w=800",
+    date: "2024",
+    services: ["Web Development", "3D Integration", "Performance Optimization"]
+  },
+  {
+    id: "proj-4",
+    client: "ELEVANA",
+    category: "Motion",
+    description: "Brand launch campaign featuring high-end motion graphics and video editing.",
+    image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=1200",
+    date: "2024",
+    services: ["Motion Graphics", "Video Production", "Campaign Strategy"]
+  }
+];
 
