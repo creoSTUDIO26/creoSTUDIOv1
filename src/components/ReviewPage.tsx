@@ -253,13 +253,13 @@ export default function ReviewPage({ services, testimonials = [], onBack, onSubm
                   <p className="text-black/40 text-sm italic text-center py-8">No reviews yet. Be the first to leave one!</p>
                 ) : (
                   testimonials.map(review => (
-                    <div key={review.id} className="border border-black/5 p-6 bg-black/[0.02]">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                          <img src={review.avatar} alt={review.author} className="w-10 h-10 rounded-full" />
+                    <div key={review.id} className="border border-black/5 p-4 bg-black/[0.02]">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-2">
+                          <img src={review.avatar} alt={review.author} className="w-8 h-8 rounded-full" />
                           <div>
-                            <h4 className="font-bold text-sm">{review.author}</h4>
-                            <p className="text-[10px] uppercase tracking-widest text-black/40 font-mono">{review.role} {review.company ? `• ${review.company}` : ''}</p>
+                            <h4 className="font-bold text-xs">{review.author}</h4>
+                            <p className="text-[9px] uppercase tracking-widest text-black/40 font-mono">{review.role} {review.company ? `• ${review.company}` : ''}</p>
                           </div>
                         </div>
                         <div className="flex">
@@ -269,7 +269,7 @@ export default function ReviewPage({ services, testimonials = [], onBack, onSubm
                         </div>
                       </div>
                       {review.text && (
-                        <p className="text-sm text-black/70 leading-relaxed font-sans">{review.text}</p>
+                        <p className="text-xs text-black/70 leading-relaxed font-sans mt-2">{review.text}</p>
                       )}
                     </div>
                   ))

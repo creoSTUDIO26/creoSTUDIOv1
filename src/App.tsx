@@ -301,25 +301,25 @@ export default function App() {
   const [services, setServices] = useState<ServiceDetail[]>(() => {
     const saved = localStorage.getItem('creo_services');
     const parsed = saved ? JSON.parse(saved) : null;
-    return parsed && parsed.length > 0 ? parsed : SERVICES_DATA;
+    return parsed !== null ? parsed : SERVICES_DATA;
   });
 
   const [clients, setClients] = useState<ClientProfile[]>(() => {
     const saved = localStorage.getItem('creo_clients');
     const parsed = saved ? JSON.parse(saved) : null;
-    return parsed && parsed.length > 0 ? parsed : CLIENTS_DATA;
+    return parsed !== null ? parsed : CLIENTS_DATA;
   });
 
   const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
     const saved = localStorage.getItem('creo_testimonials');
     const parsed = saved ? JSON.parse(saved) : null;
-    return parsed && parsed.length > 0 ? parsed : TESTIMONIALS_DATA;
+    return parsed !== null ? parsed : TESTIMONIALS_DATA;
   });
 
   const [projects, setProjects] = useState<PortfolioProject[]>(() => {
     const saved = localStorage.getItem('creo_projects');
     const parsed = saved ? JSON.parse(saved) : null;
-    return parsed && parsed.length > 0 ? parsed : FEATURED_PROJECTS;
+    return parsed !== null ? parsed : FEATURED_PROJECTS;
   });
 
   const [inquiries, setInquiries] = useState<ClientInquiry[]>(() => {
@@ -406,19 +406,19 @@ export default function App() {
       const content = data?.content || {};
       
       // Always use Supabase as the source of truth when available, fallback to default data if missing/empty
-      const loadedServices = content.services && content.services.length > 0 ? content.services : SERVICES_DATA;
+      const loadedServices = content.services !== undefined ? content.services : SERVICES_DATA;
       setServices(loadedServices);
       localStorage.setItem('creo_services', JSON.stringify(loadedServices));
       
-      const loadedClients = content.clients && content.clients.length > 0 ? content.clients : CLIENTS_DATA;
+      const loadedClients = content.clients !== undefined ? content.clients : CLIENTS_DATA;
       setClients(loadedClients);
       localStorage.setItem('creo_clients', JSON.stringify(loadedClients));
       
-      const loadedTestimonials = content.testimonials && content.testimonials.length > 0 ? content.testimonials : TESTIMONIALS_DATA;
+      const loadedTestimonials = content.testimonials !== undefined ? content.testimonials : TESTIMONIALS_DATA;
       setTestimonials(loadedTestimonials);
       localStorage.setItem('creo_testimonials', JSON.stringify(loadedTestimonials));
       
-      const loadedProjects = content.projects && content.projects.length > 0 ? content.projects : FEATURED_PROJECTS;
+      const loadedProjects = content.projects !== undefined ? content.projects : FEATURED_PROJECTS;
       setProjects(loadedProjects);
       localStorage.setItem('creo_projects', JSON.stringify(loadedProjects));
       
