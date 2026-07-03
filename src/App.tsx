@@ -332,12 +332,12 @@ export default function App() {
 
   // Custom Hash Router State
   const [route, setRoute] = useState<{ path: 'home' | 'service' | 'project' | 'admin' | 'review'; id?: string }>(() => {
-    const hash = window.location.hash;
+    const hash = window.location.hash.toLowerCase();
     if (hash.startsWith('#/services/')) {
-      return { path: 'service', id: hash.replace('#/services/', '') };
+      return { path: 'service', id: window.location.hash.substring(11) };
     }
     if (hash.startsWith('#/projects/')) {
-      return { path: 'project', id: hash.replace('#/projects/', '') };
+      return { path: 'project', id: window.location.hash.substring(11) };
     }
     if (hash === '#/admin') {
       return { path: 'admin' };
@@ -354,11 +354,11 @@ export default function App() {
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash;
+      const hash = window.location.hash.toLowerCase();
       if (hash.startsWith('#/services/')) {
-        setRoute({ path: 'service', id: hash.replace('#/services/', '') });
+        setRoute({ path: 'service', id: window.location.hash.substring(11) });
       } else if (hash.startsWith('#/projects/')) {
-        setRoute({ path: 'project', id: hash.replace('#/projects/', '') });
+        setRoute({ path: 'project', id: window.location.hash.substring(11) });
       } else if (hash === '#/admin') {
         setRoute({ path: 'admin' });
       } else if (hash === '#/review') {

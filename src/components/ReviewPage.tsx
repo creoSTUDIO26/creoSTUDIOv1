@@ -4,6 +4,7 @@ import { Star, Send, ArrowLeft, CheckCircle2, X } from 'lucide-react';
 import { Testimonial, ServiceDetail } from '../types';
 
 interface ReviewPageProps {
+  key?: string;
   services: ServiceDetail[];
   testimonials: Testimonial[];
   onBack: () => void;
