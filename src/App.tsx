@@ -40,7 +40,9 @@ import {
   ClientProfile, 
   Testimonial, 
   PortfolioProject, 
-  ClientInquiry 
+  ClientInquiry,
+  SiteSettings,
+  DEFAULT_SITE_SETTINGS
 } from './types';
 
 // Subcomponents
@@ -49,6 +51,7 @@ import ServiceInnerView from './components/ServiceInnerView';
 import ProjectDetailView from './components/ProjectDetailView';
 import AdminPanel from './components/AdminPanel';
 import ReviewPage from './components/ReviewPage';
+import AnimatedHero from './components/AnimatedHero';
 import { supabase } from './lib/supabase';
 
 function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: number, duration?: number, suffix?: string }) {
@@ -222,7 +225,7 @@ function CircularServicesList({
   return (
     <div 
       ref={trackRef} 
-      className="w-full relative" 
+      className="w-full relative dark-section" 
       style={{ height: trackHeight }}
     >
       {/* Sticky viewport container */}
@@ -327,6 +330,11 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
+    const saved = localStorage.getItem('creo_site_settings');
+    return saved ? JSON.parse(saved) : DEFAULT_SITE_SETTINGS;
+  });
+
   const [selectedBrand, setSelectedBrand] = useState<ClientProfile | null>(null);
   const [serviceParams, setServiceParams] = useState<{subId?: string; brand?: string} | null>(null);
 
@@ -424,6 +432,10 @@ export default function App() {
       
       setInquiries(content.inquiries || []);
       localStorage.setItem('creo_inquiries', JSON.stringify(content.inquiries || []));
+
+      const loadedSettings = content.siteSettings !== undefined ? content.siteSettings : DEFAULT_SITE_SETTINGS;
+      setSiteSettings(loadedSettings);
+      localStorage.setItem('creo_site_settings', JSON.stringify(loadedSettings));
     } catch (err) {
       console.log('Using offline localStorage persistence:', err);
     }
@@ -484,6 +496,12 @@ export default function App() {
     await saveToSupabase('testimonials', newTestimonials);
   };
 
+  const updateSiteSettingsState = async (newSettings: SiteSettings) => {
+    setSiteSettings(newSettings);
+    localStorage.setItem('creo_site_settings', JSON.stringify(newSettings));
+    await saveToSupabase('siteSettings', newSettings);
+  };
+
   // Submit Contact Form handler
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,7 +554,8 @@ export default function App() {
         clients: CLIENTS_DATA,
         testimonials: TESTIMONIALS_DATA,
         projects: FEATURED_PROJECTS,
-        inquiries: []
+        inquiries: [],
+        siteSettings: DEFAULT_SITE_SETTINGS
       };
       await supabase.from('site_data').upsert({ id: 'main', content: defaultData });
 
@@ -545,12 +564,14 @@ export default function App() {
       setTestimonials(TESTIMONIALS_DATA);
       setProjects(FEATURED_PROJECTS);
       setInquiries([]);
+      setSiteSettings(DEFAULT_SITE_SETTINGS);
       
       localStorage.setItem('creo_services', JSON.stringify(SERVICES_DATA));
       localStorage.setItem('creo_clients', JSON.stringify(CLIENTS_DATA));
       localStorage.setItem('creo_testimonials', JSON.stringify(TESTIMONIALS_DATA));
       localStorage.setItem('creo_projects', JSON.stringify(FEATURED_PROJECTS));
       localStorage.setItem('creo_inquiries', JSON.stringify([]));
+      localStorage.setItem('creo_site_settings', JSON.stringify(DEFAULT_SITE_SETTINGS));
     } catch (err) {
       console.error('Failed to reset database:', err);
       throw err;
@@ -635,9 +656,11 @@ export default function App() {
               clients={clients}
               projects={projects}
               testimonials={testimonials}
+              siteSettings={siteSettings}
               updateClients={updateClientsState}
               updateProjects={updateProjectsState}
               updateTestimonials={updateTestimonialsState}
+              updateSiteSettings={updateSiteSettingsState}
               onBack={() => navigateTo('home')}
               onRefreshData={loadDbData}
               updateServices={updateServicesState}
@@ -706,98 +729,102 @@ export default function App() {
               className="flex flex-col"
             >
               {/* LANDING SECTION 1: HERO */}
-              <section id="hero-landing-section" className="max-w-7xl mx-auto px-4 sm:px-6 h-auto md:h-[70vh] pt-6 md:pt-0 min-h-[420px] md:min-h-[480px] flex flex-col justify-end pb-4 md:pb-10 sm:pb-12 overflow-hidden">
-                {/* Mobile Animated Graphic Element */}
-                <div className="flex-grow w-full flex items-center justify-center relative md:hidden py-2 select-none overflow-hidden min-h-[220px]">
-                  {/* Animated background gradient glow */}
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.15, 1],
-                      rotate: [0, 180, 360],
-                      borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "70% 30% 52% 48% / 60% 40% 70% 30%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
-                    }}
-                    transition={{
-                      duration: 12,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                    className="absolute w-48 h-48 bg-gradient-to-tr from-[#007A93]/20 via-emerald-400/10 to-transparent blur-2xl pointer-events-none"
-                  />
+              {siteSettings.useHeroAnimation ? (
+                <AnimatedHero slides={siteSettings.heroSlides} />
+              ) : (
+                <section id="hero-landing-section" className="max-w-7xl mx-auto px-4 sm:px-6 h-auto md:h-[70vh] pt-6 md:pt-0 min-h-[420px] md:min-h-[480px] flex flex-col justify-end pb-4 md:pb-10 sm:pb-12 overflow-hidden">
+                  {/* Mobile Animated Graphic Element */}
+                  <div className="flex-grow w-full flex items-center justify-center relative md:hidden py-2 select-none overflow-hidden min-h-[220px]">
+                    {/* Animated background gradient glow */}
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.15, 1],
+                        rotate: [0, 180, 360],
+                        borderRadius: ["40% 60% 70% 30% / 40% 50% 60% 50%", "70% 30% 52% 48% / 60% 40% 70% 30%", "40% 60% 70% 30% / 40% 50% 60% 50%"]
+                      }}
+                      transition={{
+                        duration: 12,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute w-48 h-48 bg-gradient-to-tr from-[#007A93]/20 via-emerald-400/10 to-transparent blur-2xl pointer-events-none"
+                    />
 
-                  {/* Thin architectural wireframe grid */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-[0.07] pointer-events-none">
-                    <div className="w-56 h-56 border border-dashed border-black rounded-full animate-[spin_40s_linear_infinite]" />
-                    <div className="absolute w-40 h-40 border border-black rounded-full animate-[spin_20s_linear_infinite_reverse]" />
-                    <div className="absolute w-56 h-[1px] bg-black" />
-                    <div className="absolute h-56 w-[1px] bg-black" />
+                    {/* Thin architectural wireframe grid */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-[0.07] pointer-events-none">
+                      <div className="w-56 h-56 border border-dashed border-black rounded-full animate-[spin_40s_linear_infinite]" />
+                      <div className="absolute w-40 h-40 border border-black rounded-full animate-[spin_20s_linear_infinite_reverse]" />
+                      <div className="absolute w-56 h-[1px] bg-black" />
+                      <div className="absolute h-56 w-[1px] bg-black" />
+                    </div>
+
+                    {/* Main Interactive/Floating Element: Premium Glassmorphism Card */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0, scale: 0.9 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                      className="relative"
+                    >
+                      {/* Floating Glass Card 1 */}
+                      <motion.div
+                        animate={{ y: [0, -8, 0] }}
+                        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                        className="w-40 h-24 bg-white/45 backdrop-blur-md border border-white/40 rounded-none p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.06)] relative z-10 flex flex-col justify-between"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="w-8 h-8 rounded-none bg-black/5 flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-[#007A93] animate-pulse" />
+                          </div>
+                          <div className="font-mono text-[8px] text-black/40 font-bold uppercase tracking-wider">
+                            creo // S-01
+                          </div>
+                        </div>
+                        <div>
+                          <div className="w-12 h-1 bg-[#007A93]/40 rounded-none mb-1.5" />
+                          <div className="w-16 h-1 bg-black/10 rounded-none" />
+                        </div>
+                      </motion.div>
+
+                      {/* Floating Glass Card 2 - overlapping slightly offset */}
+                      <motion.div
+                        animate={{ y: [0, 8, 0] }}
+                        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                        className="absolute -bottom-6 -right-6 w-32 h-20 bg-black/[0.02] backdrop-blur-sm border border-black/5 rounded-none p-3 shadow-sm z-20 flex flex-col justify-between"
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[9px] font-mono font-bold tracking-widest text-black/50">ACTIVE</span>
+                          <div className="w-1.5 h-1.5 rounded-none bg-emerald-400 animate-ping" />
+                        </div>
+                        <div className="flex gap-1 items-end">
+                          <div className="w-3 h-4 bg-black/10 rounded-none" />
+                          <div className="w-3 h-7 bg-[#007A93]/60 rounded-none" />
+                          <div className="w-3 h-5 bg-black/10 rounded-none" />
+                        </div>
+                      </motion.div>
+                    </motion.div>
                   </div>
 
-                  {/* Main Interactive/Floating Element: Premium Glassmorphism Card */}
-                  <motion.div
-                    initial={{ y: 20, opacity: 0, scale: 0.9 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative"
-                  >
-                    {/* Floating Glass Card 1 */}
-                    <motion.div
-                      animate={{ y: [0, -8, 0] }}
-                      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                      className="w-40 h-24 bg-white/45 backdrop-blur-md border border-white/40 rounded-none p-4 shadow-[0_8px_32px_0_rgba(0,0,0,0.06)] relative z-10 flex flex-col justify-between"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="w-8 h-8 rounded-none bg-black/5 flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-[#007A93] animate-pulse" />
-                        </div>
-                        <div className="font-mono text-[8px] text-black/40 font-bold uppercase tracking-wider">
-                          creo // S-01
-                        </div>
-                      </div>
-                      <div>
-                        <div className="w-12 h-1 bg-[#007A93]/40 rounded-none mb-1.5" />
-                        <div className="w-16 h-1 bg-black/10 rounded-none" />
-                      </div>
-                    </motion.div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-end">
+                    <div className="md:col-span-2">
+                      <h1 className="font-display text-[2.5rem] xs:text-5xl sm:text-7xl xl:text-[8rem] font-bold text-black tracking-tighter uppercase leading-[0.88] mb-2 relative z-10">
+                        Crafting digital <br />
+                        <span className="font-serif italic font-normal text-black/70 lowercase text-[2rem] xs:text-4xl sm:text-6xl xl:text-[7rem]">experiences</span>
+                      </h1>
+                    </div>
 
-                    {/* Floating Glass Card 2 - overlapping slightly offset */}
-                    <motion.div
-                      animate={{ y: [0, 8, 0] }}
-                      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                      className="absolute -bottom-6 -right-6 w-32 h-20 bg-black/[0.02] backdrop-blur-sm border border-black/5 rounded-none p-3 shadow-sm z-20 flex flex-col justify-between"
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className="text-[9px] font-mono font-bold tracking-widest text-black/50">ACTIVE</span>
-                        <div className="w-1.5 h-1.5 rounded-none bg-emerald-400 animate-ping" />
+                    <div className="hidden sm:flex flex-col items-start md:items-end justify-end text-sm text-black/60 font-sans leading-relaxed relative z-10">
+                      <p className="mb-6 max-w-xs md:text-right">A creative studio crafting stunning digital experiences with precision and scale.</p>
+                      <div className="flex gap-4 font-mono text-[10px] uppercase tracking-widest text-black/40">
+                        <a href="#" className="hover:text-black transition-colors">X</a>
+                        <span>-</span>
+                        <a href="#" className="hover:text-black transition-colors">Ins</a>
+                        <span>-</span>
+                        <a href="#" className="hover:text-black transition-colors">Tg</a>
                       </div>
-                      <div className="flex gap-1 items-end">
-                        <div className="w-3 h-4 bg-black/10 rounded-none" />
-                        <div className="w-3 h-7 bg-[#007A93]/60 rounded-none" />
-                        <div className="w-3 h-5 bg-black/10 rounded-none" />
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-end">
-                  <div className="md:col-span-2">
-                    <h1 className="font-display text-[2.5rem] xs:text-5xl sm:text-7xl xl:text-[8rem] font-bold text-black tracking-tighter uppercase leading-[0.88] mb-2 relative z-10">
-                      Crafting digital <br />
-                      <span className="font-serif italic font-normal text-black/70 lowercase text-[2rem] xs:text-4xl sm:text-6xl xl:text-[7rem]">experiences</span>
-                    </h1>
-                  </div>
-
-                  <div className="hidden sm:flex flex-col items-start md:items-end justify-end text-sm text-black/60 font-sans leading-relaxed relative z-10">
-                    <p className="mb-6 max-w-xs md:text-right">A creative studio crafting stunning digital experiences with precision and scale.</p>
-                    <div className="flex gap-4 font-mono text-[10px] uppercase tracking-widest text-black/40">
-                      <a href="#" className="hover:text-black transition-colors">X</a>
-                      <span>-</span>
-                      <a href="#" className="hover:text-black transition-colors">Ins</a>
-                      <span>-</span>
-                      <a href="#" className="hover:text-black transition-colors">Tg</a>
                     </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              )}
 
               {/* LANDING SECTION 2: PROJECTS START */}
               <section id="featured-work-section" className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 md:pt-24 pb-12 relative z-10 overflow-hidden">
@@ -915,7 +942,7 @@ export default function App() {
               </section>
 
               {/* LANDING SECTION 3: THE BIG INTERACTIVE SERVICES ACCORDION LIST */}
-              <section id="services-index-section" className="w-full pt-0 pb-0 md:pt-24 md:pb-16 relative md:overflow-hidden bg-[#0a0a0a] border-y border-white/5">
+              <section id="services-index-section" className="w-full pt-0 pb-0 md:pt-24 md:pb-16 relative md:overflow-hidden bg-[#0a0a0a] border-y border-white/5 dark-section">
                 {/* Desktop view header & list (hidden on mobile) */}
                 <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
                   <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-8 mb-10 md:mb-16 gap-4 md:gap-6">
@@ -1159,7 +1186,7 @@ export default function App() {
               </section>
 
               {/* LANDING SECTION 6: CONTACT FORM */}
-              <section id="collaboration-contact-form" className="bg-[#0a0a0a] border-t border-white/5 py-12 md:pt-24 md:pb-12 scroll-mt-24 relative z-10 w-full overflow-hidden">
+              <section id="collaboration-contact-form" className="bg-[#0a0a0a] border-t border-white/5 py-12 md:pt-24 md:pb-12 scroll-mt-24 relative z-10 w-full overflow-hidden dark-section">
                 <div className="max-w-7xl mx-auto px-0 sm:px-6">
                   <div className="bg-[#f2f2f2] rounded-none sm:rounded-none p-4 sm:p-8 lg:p-12 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-[#e8e8e8] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
@@ -1370,7 +1397,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="bg-[#0a0a0a] py-5 w-full border-t border-white/5">
+          <div className="bg-[#0a0a0a] py-5 w-full border-t border-white/5 dark-section">
             <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 font-mono text-[10px] uppercase tracking-wider text-white/50">
               <div>
                 © {new Date().getFullYear()} creoSTUDIO. All rights reserved.

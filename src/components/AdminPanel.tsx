@@ -23,7 +23,7 @@ import {
   Award,
   Globe
 } from 'lucide-react';
-import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial } from '../types';
+import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial, SiteSettings } from '../types';
 import { supabase } from '../lib/supabase';
 
 // Per-service category configs for admin
@@ -79,9 +79,11 @@ interface AdminPanelProps {
   clients: ClientProfile[];
   projects: PortfolioProject[];
   testimonials: Testimonial[];
+  siteSettings: SiteSettings;
   updateClients: (clients: ClientProfile[]) => Promise<void>;
   updateProjects: (projects: PortfolioProject[]) => Promise<void>;
   updateTestimonials: (testimonials: Testimonial[]) => Promise<void>;
+  updateSiteSettings: (settings: SiteSettings) => Promise<void>;
   onBack: () => void;
   onRefreshData: () => Promise<void>;
   updateServices: (services: ServiceDetail[]) => Promise<void>;
@@ -89,7 +91,7 @@ interface AdminPanelProps {
   resetDatabase: () => Promise<void>;
 }
 
-type Tab = 'dashboard' | 'services' | 'work' | 'inquiries' | 'brands' | 'projects' | 'reviews';
+type Tab = 'dashboard' | 'settings' | 'services' | 'work' | 'inquiries' | 'brands' | 'projects' | 'reviews';
 
 export default function AdminPanel({
   services,
@@ -97,9 +99,11 @@ export default function AdminPanel({
   clients,
   projects,
   testimonials,
+  siteSettings,
   updateClients,
   updateProjects,
   updateTestimonials,
+  updateSiteSettings,
   onBack,
   onRefreshData,
   updateServices,
@@ -793,6 +797,15 @@ export default function AdminPanel({
             </button>
 
             <button
+              onClick={() => handleTabSwitch('settings')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-none text-xs font-mono font-bold uppercase tracking-wider transition-all w-full text-left whitespace-nowrap cursor-pointer ${activeTab === 'settings' ? 'bg-[#007A93] text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Settings</span>
+            </button>
+
+            <button
               onClick={() => handleTabSwitch('services')}
               className={`flex items-center gap-3 px-4 py-3 rounded-none text-xs font-mono font-bold uppercase tracking-wider transition-all w-full text-left whitespace-nowrap cursor-pointer ${activeTab === 'services' ? 'bg-[#007A93] text-gray-900' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
@@ -930,6 +943,77 @@ export default function AdminPanel({
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SETTINGS */}
+            {activeTab === 'settings' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="border-b border-gray-300 pb-6">
+                  <h2 className="font-display text-2xl font-bold uppercase tracking-tight">Site Settings</h2>
+                  <p className="text-gray-500 text-xs font-sans mt-1">Configure global site settings and features.</p>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-none p-6">
+                  <h3 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">Hero Animation (Studio Olimpo Style)</h3>
+                  
+                  <div className="flex items-center justify-between bg-white border border-gray-200 p-4 mb-6">
+                    <div>
+                      <h4 className="font-bold text-sm">Enable Animated Hero Sequence</h4>
+                      <p className="text-xs text-gray-500 mt-1">Uses a fast-flashing image sequence loader at the start of the site instead of the static glassmorphism card.</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        setIsSaving(true);
+                        try {
+                          await updateSiteSettings({
+                            ...siteSettings,
+                            useHeroAnimation: !siteSettings.useHeroAnimation
+                          });
+                          triggerToast(siteSettings.useHeroAnimation ? 'Hero animation disabled.' : 'Hero animation enabled.');
+                        } catch(e) {
+                          triggerToast('Failed to update settings');
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      disabled={isSaving}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        siteSettings.useHeroAnimation ? 'bg-[#007A93]' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        siteSettings.useHeroAnimation ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {siteSettings.useHeroAnimation && (
+                    <div className="bg-white border border-gray-200 p-4">
+                      <h4 className="font-bold text-sm mb-4">Hero Animation Slides (8 Required)</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {siteSettings.heroSlides.map((slide, index) => (
+                          <div key={index} className="relative group aspect-video bg-gray-100 border border-gray-200">
+                            <img src={slide} alt={`Slide ${index + 1}`} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                               <input 
+                                 type="text"
+                                 value={slide}
+                                 onChange={(e) => {
+                                   const newSlides = [...siteSettings.heroSlides];
+                                   newSlides[index] = e.target.value;
+                                   updateSiteSettings({ ...siteSettings, heroSlides: newSlides });
+                                 }}
+                                 className="w-full text-[10px] p-1 bg-white text-black"
+                               />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-3 uppercase tracking-wider font-mono">Tip: Hover over an image to paste a new URL.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
