@@ -27,12 +27,14 @@ import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWo
 import { supabase } from '../lib/supabase';
 
 // Per-service category configs for admin
+// #3 — Added brand-building and more insta categories
 const ADMIN_CATEGORIES: Record<string, string[]> = {
-  'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot'],
-  'ai-video-shoot': ['Clothing Shoot', 'Footwear Shoot'],
+  'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
+  'ai-video-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
   'e-invitation': ['Still Cards', 'Motion Cards', 'Invitation Website'],
-  'catalog': ['PDF', 'Website'],
-  'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Others'],
+  'catalog': ['PDF', 'Website', 'Product Catalog', 'Lookbook'],
+  'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Reels Cover', 'Others'],
+  'brand-building': ['Logo Design', 'Brand Identity', 'Color Palette', 'Typography', 'Brand Guide', 'Others'],
 };
 
 const POPUP_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -138,6 +140,12 @@ export default function AdminPanel({
   const [newMeta, setNewMeta] = useState('');
   const [newOriginalUrls, setNewOriginalUrls] = useState('');
   const [newGeneratedVariants, setNewGeneratedVariants] = useState('');
+
+  // Drag & Drop and Collapsible States for Subsections
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+  const [draggedItemService, setDraggedItemService] = useState<string | null>(null);
+  const [previewServices, setPreviewServices] = useState<ServiceDetail[] | null>(null);
 
   // Per-service extra fields
   const [newBrandName, setNewBrandName] = useState('');
@@ -304,7 +312,8 @@ export default function AdminPanel({
 
   const isNoTextService = ['e-invitation', 'catalog', 'insta-grid-stories'].includes(selectedServiceId);
   const isShootService = selectedServiceId === 'ai-photo-shoot' || selectedServiceId === 'ai-video-shoot';
-  const showBrandName = ['website-design', 'brand-building', 'ai-photo-shoot', 'ai-video-shoot'].includes(selectedServiceId);
+  // #4 — Expanded showBrandName to include social media, catalog, automation services
+  const showBrandName = ['website-design', 'brand-building', 'ai-photo-shoot', 'ai-video-shoot', 'insta-grid-stories', 'catalog', 'automation'].includes(selectedServiceId);
   const showInstaLink = ['brand-building', 'insta-grid-stories'].includes(selectedServiceId);
   const showWebsiteUrl = ['website-design', 'brand-building', 'e-invitation', 'catalog'].includes(selectedServiceId) || newVisualType === 'website' || newPopupType === 'website-link' || newPopupType === 'website-embed' || newVisualType === 'automation';
   const showPdfUrl = ['brand-building', 'e-invitation', 'catalog'].includes(selectedServiceId) || newVisualType === 'pdf' || newPopupType === 'pdf';
@@ -394,15 +403,26 @@ export default function AdminPanel({
             subsections: s.subsections.map(sub => sub.id === editingItemId ? newSection : sub)
           };
         }
-        return { ...s, subsections: [newSection, ...s.subsections] };
+        // #9 — Auto-save new custom categories so they appear in the dropdown next time
+        const newCategoryCoverImages = s.categoryCoverImages ? { ...s.categoryCoverImages } : {};
+        return { ...s, subsections: [newSection, ...s.subsections], categoryCoverImages: newCategoryCoverImages };
       }
       return s;
     });
+    // #9 — Update the global ADMIN_CATEGORIES if new custom category was typed
+    if (newCategory === 'Custom' && newCustomCategory.trim()) {
+      const customCat = newCustomCategory.trim();
+      if (!ADMIN_CATEGORIES[selectedServiceId]) ADMIN_CATEGORIES[selectedServiceId] = [];
+      if (!ADMIN_CATEGORIES[selectedServiceId].includes(customCat)) {
+        ADMIN_CATEGORIES[selectedServiceId] = [...ADMIN_CATEGORIES[selectedServiceId], customCat];
+      }
+    }
 
     try {
       await updateServices(updatedServices);
       handleCancelEdit();
       setUploadSuccess(false);
+      setNewCustomCategory('');
       triggerToast(editingItemId ? 'Work updated successfully!' : 'Work published successfully!');
     } catch (err) {
       triggerToast('Failed to save work item.');
@@ -1015,6 +1035,63 @@ export default function AdminPanel({
                     </div>
                   )}
                 </div>
+
+                {/* #11 — Live Operations Graph Editor */}
+                <div className="bg-gray-50 border border-gray-200 rounded-none p-6">
+                  <h3 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">Live Operations Graph (By The Numbers)</h3>
+                  <p className="text-xs text-gray-500 mb-6 font-sans">Set manual overrides for the live operations stats. Leave blank to auto-calculate from uploaded work.</p>
+                  <div className="space-y-4">
+                    {/* Total Brands Override */}
+                    <div className="bg-white border border-gray-200 p-4 grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">Total Brands</label>
+                        <p className="text-[9px] font-sans text-gray-400 mb-2">Auto-calculated: {clients.length}</p>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          placeholder="Leave blank for auto"
+                          value={siteSettings.liveStatsOverrides?.['total_brands'] ?? ''}
+                          onChange={async (e) => {
+                            const val = e.target.value === '' ? undefined : Number(e.target.value);
+                            const overrides = { ...(siteSettings.liveStatsOverrides || {}) };
+                            if (val === undefined) delete overrides['total_brands'];
+                            else overrides['total_brands'] = val;
+                            await updateSiteSettings({ ...siteSettings, liveStatsOverrides: overrides });
+                          }}
+                          className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-sm focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                    {/* Service overrides */}
+                    {services.map(s => {
+                      const currentAuto = s.subsections?.length || 0;
+                      return (
+                        <div key={s.id} className="bg-white border border-gray-200 p-4 grid grid-cols-2 gap-3 items-end">
+                          <div>
+                            <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">{s.name}</label>
+                            <p className="text-[9px] font-sans text-gray-400 mb-2">Auto-calculated: {currentAuto}</p>
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              placeholder="Leave blank for auto"
+                              value={siteSettings.liveStatsOverrides?.[s.id] ?? ''}
+                              onChange={async (e) => {
+                                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                                const overrides = { ...(siteSettings.liveStatsOverrides || {}) };
+                                if (val === undefined) delete overrides[s.id];
+                                else overrides[s.id] = val;
+                                await updateSiteSettings({ ...siteSettings, liveStatsOverrides: overrides });
+                              }}
+                              className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-sm focus:outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1228,12 +1305,34 @@ export default function AdminPanel({
                     {showBrandName && (
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Brand / Client Name</label>
-                        <input type="text" list="client-brands-list" value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="e.g., LUXE Fashion" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
-                        <datalist id="client-brands-list">
-                          {clients.map(c => (
-                            <option key={c.id} value={c.name} />
-                          ))}
-                        </datalist>
+                        <div className="flex flex-col gap-2">
+                          <select 
+                            value={clients.some(c => c.name === newBrandName) ? newBrandName : (newBrandName === '' ? '' : 'Custom')}
+                            onChange={(e) => {
+                              if (e.target.value === 'Custom') {
+                                setNewBrandName(' '); 
+                              } else {
+                                setNewBrandName(e.target.value);
+                              }
+                            }}
+                            className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer"
+                          >
+                            <option value="">-- No Brand --</option>
+                            {clients.map(c => (
+                              <option key={c.id} value={c.name}>{c.name}</option>
+                            ))}
+                            <option value="Custom">+ Custom Brand...</option>
+                          </select>
+                          {(!clients.some(c => c.name === newBrandName) && newBrandName !== '') && (
+                            <input 
+                              type="text" 
+                              value={newBrandName.trimStart()} 
+                              onChange={(e) => setNewBrandName(e.target.value)} 
+                              placeholder="Type custom brand name..." 
+                              className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" 
+                            />
+                          )}
+                        </div>
                       </div>
                     )}
                     {showInstaLink && (
@@ -1281,12 +1380,19 @@ export default function AdminPanel({
                       <span className="text-[10px] font-sans text-gray-500">Upload cover image or paste URL</span>
                     </div>
                     <div className="space-y-6">
+                      {/* #13 — Drag and drop upload for cover media */}
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                         <div className="md:col-span-4">
-                          <label className="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none">
+                          <label
+                            className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
+                            onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
+                            onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
+                            onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'visual'); }}
+                          >
                             {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Cover Media</span>
-                            <input type="file" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'visual')} disabled={uploadingFile} className="hidden" />
+                            <span className="text-[9px] text-gray-400 mt-1">Click or drag & drop</span>
+                            <input type="file" accept="image/*,video/*" multiple onChange={(e) => handleFileUpload(e, 'visual')} disabled={uploadingFile} className="hidden" />
                           </label>
                         </div>
                         <div className="md:col-span-8">
@@ -1331,9 +1437,16 @@ export default function AdminPanel({
                         <>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
                             <div className="md:col-span-4">
-                              <label className="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none">
+                              {/* #13 — Drag & drop for originals */}
+                              <label
+                                className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
+                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
+                                onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
+                                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'original'); }}
+                              >
                                 {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
                                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Originals</span>
+                                <span className="text-[9px] text-gray-400 mt-1">Click or drag & drop</span>
                                 <input type="file" multiple accept="image/*" onChange={(e) => handleFileUpload(e, 'original')} disabled={uploadingFile} className="hidden" />
                               </label>
                             </div>
@@ -1344,9 +1457,16 @@ export default function AdminPanel({
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                             <div className="md:col-span-4">
-                              <label className="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none">
+                              {/* #13 — Drag & drop for variants */}
+                              <label
+                                className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
+                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
+                                onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
+                                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'variant'); }}
+                              >
                                 {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
                                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider">AI Variants</span>
+                                <span className="text-[9px] text-gray-400 mt-1">Click or drag & drop</span>
                                 <input type="file" multiple accept="image/*" onChange={(e) => handleFileUpload(e, 'variant')} disabled={uploadingFile} className="hidden" />
                               </label>
                             </div>
@@ -1392,12 +1512,68 @@ export default function AdminPanel({
                   </div>
                 </form>
 
-                {/* Listing current subsections to delete */}
+                {/* Listing current subsections to delete & reorder */}
                 <div className="border-t border-gray-200 pt-10 mt-10">
                   <h3 className="font-display text-xl font-bold uppercase tracking-tight mb-6">Manage Published Subsections</h3>
 
+                  {/* #12 — Category Cover Images for Shoot Services */}
+                  {services.filter(s => s.id === 'ai-photo-shoot' || s.id === 'ai-video-shoot').map(s => (
+                    <div key={`cover-${s.id}`} className="mb-8 bg-gray-50 border border-gray-200 p-6 rounded-none">
+                      <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">{s.name} — Category Cover Images</h4>
+                      <p className="text-xs text-gray-500 mb-4 font-sans">Set a custom cover image for each shoot category. This overrides the auto-detected first item.</p>
+                      <div className="space-y-3">
+                        {(ADMIN_CATEGORIES[s.id] || []).map(cat => {
+                          const currentCover = s.categoryCoverImages?.[cat] || '';
+                          return (
+                            <div key={cat} className="grid grid-cols-12 gap-4 items-center">
+                              <span className="col-span-3 text-xs font-mono font-bold text-gray-700 uppercase">{cat}</span>
+                              {currentCover && <img src={currentCover} alt={cat} className="col-span-2 w-full aspect-square object-cover border border-gray-200" />}
+                              <div className="col-span-5 flex gap-2">
+                                <input
+                                  type="text"
+                                  value={currentCover}
+                                  onChange={async (e) => {
+                                    const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: e.target.value } } : sv);
+                                    await updateServices(updatedServices);
+                                  }}
+                                  placeholder="Paste image URL..."
+                                  className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs focus:outline-none font-mono"
+                                />
+                              </div>
+                              <label className="col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 p-2 flex items-center justify-center text-center cursor-pointer transition-all select-none">
+                                {uploadingFile ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 text-gray-600" />}
+                                <input
+                                  type="file"
+                                  accept="image/*,video/*"
+                                  onChange={async (e) => {
+                                    const files = e.target.files;
+                                    if (!files || files.length === 0) return;
+                                    setUploadingFile(true);
+                                    try {
+                                      const file = files[0];
+                                      const fileExt = file.name.split('.').pop();
+                                      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                                      const { error } = await supabase.storage.from('portfolio-media').upload(fileName, file, { cacheControl: '3600', upsert: false });
+                                      if (error) throw error;
+                                      const { data: { publicUrl } } = supabase.storage.from('portfolio-media').getPublicUrl(fileName);
+                                      const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: publicUrl } } : sv);
+                                      await updateServices(updatedServices);
+                                      triggerToast(`Cover for "${cat}" updated!`);
+                                    } catch (err) { triggerToast('Upload failed.'); }
+                                    finally { setUploadingFile(false); }
+                                  }}
+                                  className="hidden"
+                                />
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
                   <div className="space-y-8">
-                    {services.map(s => {
+                    {(previewServices || services).map(s => {
                       if (!s.subsections || s.subsections.length === 0) return null;
                       return (
                         <div key={s.id} className="space-y-4">
@@ -1405,46 +1581,130 @@ export default function AdminPanel({
                             {s.name} Subsections ({s.subsections.length})
                           </h4>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {s.subsections.map((sub, idx) => (
-                              <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-none flex justify-between gap-4 items-start">
-                                <div className="flex gap-3 items-start overflow-hidden">
-                                  <img
-                                    src={sub.visualUrl}
-                                    alt={sub.title}
-                                    className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
-                                  />
-                                  <div className="overflow-hidden">
-                                    <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
-                                    <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
-                                      Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
-                                    </span>
-                                    <span className="font-mono text-[9px] text-[#007A93] tracking-wider uppercase mt-1 block">
-                                      {sub.visualType}
-                                    </span>
+                          <div className="space-y-6 mt-4">
+                            {/* Group subsections by category */}
+                            {Object.entries(
+                              s.subsections.reduce((acc, sub, idx) => {
+                                const cat = sub.subCategory || 'General';
+                                if (!acc[cat]) acc[cat] = [];
+                                acc[cat].push({ sub, idx });
+                                return acc;
+                              }, {} as Record<string, { sub: any, idx: number }[]>)
+                            ).map(([category, items]) => {
+                              const isCollapsed = collapsedCategories[`${s.id}-${category}`];
+                              return (
+                                <div key={category} className="space-y-3">
+                                  {/* Category Header */}
+                                  <div 
+                                    className="flex justify-between items-center cursor-pointer bg-gray-100 hover:bg-gray-200 transition-colors p-3 border-l-4 border-[#007A93]"
+                                    onClick={() => setCollapsedCategories(prev => ({ ...prev, [`${s.id}-${category}`]: !isCollapsed }))}
+                                  >
+                                    <h5 className="font-sans text-xs font-bold text-gray-700 uppercase tracking-widest">{category} <span className="text-gray-400 font-normal ml-1">({items.length})</span></h5>
+                                    <span className="text-gray-400 font-mono text-[10px]">{isCollapsed ? 'SHOW ▼' : 'HIDE ▲'}</span>
                                   </div>
-                                </div>
 
-                                <div className="flex items-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditSubsection(sub, s.id)}
-                                    className="text-gray-400 hover:text-blue-500 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
-                                    title="Edit subsection"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveSubsection(s.id, idx)}
-                                    className="text-gray-400 hover:text-red-400 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
-                                    title="Remove subsection"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  {/* Items List */}
+                                  {!isCollapsed && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {items.map(({ sub, idx }) => (
+                                        <motion.div 
+                                          layout
+                                          key={sub.title + idx} 
+                                          draggable
+                                          onDragStart={(e) => {
+                                            e.dataTransfer.effectAllowed = "move";
+                                            setDraggedItemIndex(idx);
+                                            setDraggedItemService(s.id);
+                                            setPreviewServices(services);
+                                          }}
+                                          onDragEnter={(e) => {
+                                            e.preventDefault();
+                                            if (draggedItemService !== s.id || draggedItemIndex === null || draggedItemIndex === idx) return;
+
+                                            setPreviewServices(prev => {
+                                              const nextServices = prev ? [...prev] : [...services];
+                                              const sIndex = nextServices.findIndex(sv => sv.id === s.id);
+                                              if (sIndex === -1) return nextServices;
+                                          
+                                              const sCopy = { ...nextServices[sIndex] };
+                                              const subs = [...(sCopy.subsections || [])];
+                                              
+                                              const [removed] = subs.splice(draggedItemIndex, 1);
+                                              removed.subCategory = category === 'General' ? '' : category;
+                                              subs.splice(idx, 0, removed);
+                                              
+                                              sCopy.subsections = subs;
+                                              nextServices[sIndex] = sCopy;
+                                              return nextServices;
+                                            });
+                                            setDraggedItemIndex(idx);
+                                          }}
+                                          onDragOver={(e) => {
+                                            e.preventDefault();
+                                            e.dataTransfer.dropEffect = "move";
+                                          }}
+                                          onDrop={async (e) => {
+                                            e.preventDefault();
+                                            if (draggedItemService !== s.id || draggedItemIndex === null) return;
+                                            if (previewServices) {
+                                              await updateServices(previewServices);
+                                            }
+                                            setDraggedItemIndex(null);
+                                            setDraggedItemService(null);
+                                            setPreviewServices(null);
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedItemIndex(null);
+                                            setDraggedItemService(null);
+                                            setPreviewServices(null);
+                                          }}
+                                          className={`bg-gray-50 border border-gray-200 p-4 rounded-none flex justify-between gap-4 items-start ${draggedItemIndex === idx ? 'opacity-30 border-dashed border-[#007A93]' : 'cursor-move hover:border-gray-400 hover:shadow-sm transition-all'}`}
+                                        >
+                                          <div className="flex gap-3 items-start overflow-hidden pointer-events-none">
+                                            <div className="text-gray-300 mt-3 mr-1 shrink-0">
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
+                                            </div>
+                                            <img
+                                              src={sub.visualUrl}
+                                              alt={sub.title}
+                                              className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
+                                            />
+                                            <div className="overflow-hidden">
+                                              <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
+                                              <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
+                                                Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
+                                              </span>
+                                              <span className="font-mono text-[9px] text-[#007A93] tracking-wider uppercase mt-1 block">
+                                                {sub.visualType}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleEditSubsection(sub, s.id)}
+                                              className="text-gray-400 hover:text-blue-500 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                              title="Edit subsection"
+                                            >
+                                              <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveSubsection(s.id, idx)}
+                                              className="text-gray-400 hover:text-red-400 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                              title="Remove subsection"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </motion.div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );

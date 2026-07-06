@@ -1015,33 +1015,22 @@ export default function App() {
               {/* LANDING SECTION 4: PERFORMANCE STATS */}
               <section id="performance-stats-section" className="bg-white border-y border-black/10 py-12 sm:py-16 relative z-10 w-full overflow-hidden">
                 <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-black mb-2"><AnimatedCounter value={2} /><span className="font-serif italic font-normal text-black/50 ml-1">Days</span></div>
-                    <div className="font-sans text-[10px] sm:text-xs font-semibold text-black/60 uppercase tracking-[0.2em] max-w-[120px] mx-auto text-center">
-                      Fast Delivery Guarantee
+                  {[
+                    { value: 2, suffix: ' Days', label: 'Fast Delivery Guarantee' },
+                    { value: 98, suffix: '%', label: 'Campaign Accuracy' },
+                    { value: 2, suffix: 'K', label: 'Mastering Resolution' },
+                    { value: 12, suffix: '+', label: 'Global Brands Served' }
+                  ].map((stat, i) => (
+                    <div key={i} className="flex flex-col items-center justify-center text-center">
+                      <div className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-black mb-2">
+                        <AnimatedCounter value={stat.value} />
+                        <span className="font-serif italic font-normal text-black/50 ml-1">{stat.suffix}</span>
+                      </div>
+                      <div className="font-sans text-[10px] sm:text-xs font-semibold text-black/60 uppercase tracking-[0.2em] max-w-[120px] mx-auto text-center">
+                        {stat.label}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-black mb-2"><AnimatedCounter value={98} /><span className="font-serif italic font-normal text-black/50 ml-1">%</span></div>
-                    <div className="font-sans text-[10px] sm:text-xs font-semibold text-black/60 uppercase tracking-[0.2em] max-w-[120px] mx-auto text-center">
-                      Campaign Accuracy
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-black mb-2"><AnimatedCounter value={2} /><span className="font-serif italic font-normal text-black/50 ml-1">K</span></div>
-                    <div className="font-sans text-[10px] sm:text-xs font-semibold text-black/60 uppercase tracking-[0.2em] max-w-[120px] mx-auto text-center">
-                      Mastering Resolution
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <div className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter text-black mb-2"><AnimatedCounter value={12} /><span className="font-serif italic font-normal text-black/50 ml-1">+</span></div>
-                    <div className="font-sans text-[10px] sm:text-xs font-semibold text-black/60 uppercase tracking-[0.2em] max-w-[120px] mx-auto text-center">
-                      Global Brands Served
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </section>
 
@@ -1128,7 +1117,7 @@ export default function App() {
                              />
                           </svg>
                           <div className="flex flex-col items-center absolute inset-0 justify-center">
-                            <span className="font-display text-xl sm:text-2xl font-bold text-black"><AnimatedCounter value={clients.length} /></span>
+                            <span className="font-display text-xl sm:text-2xl font-bold text-black"><AnimatedCounter value={siteSettings.liveStatsOverrides?.['total_brands'] ?? clients.length} /></span>
                           </div>
                        </div>
                        <h3 className="font-sans text-[10px] sm:text-xs font-bold text-black uppercase tracking-tight line-clamp-1 w-full">Total Brands</h3>
@@ -1137,8 +1126,9 @@ export default function App() {
 
                     {/* Services Stats */}
                     {services.map((service, idx) => {
-                       const count = service.subsections?.length || 0;
-                       const maxCount = Math.max(...services.map(s => s.subsections?.length || 0), 1);
+                       const actualCount = service.subsections?.length || 0;
+                       const count = siteSettings.liveStatsOverrides?.[service.id] ?? actualCount;
+                       const maxCount = Math.max(...services.map(s => siteSettings.liveStatsOverrides?.[s.id] ?? (s.subsections?.length || 0)), 1);
                        const percent = Math.max((count / maxCount) * 100, 5); // at least 5% so it's visible
                        
                        const radius = 40;
@@ -1497,7 +1487,7 @@ export default function App() {
                   return (
                     <div className="space-y-4">
                       {hasLegacyWorks && (
-                        <div className="flex flex-wrap gap-3 md:gap-4">
+                        <div className="flex flex-wrap justify-center gap-3 md:gap-4">
                           {selectedBrand.workItems!.map((item) => (
                             <div key={item.id} className="w-36 md:w-44 shrink-0 border border-neutral-100 bg-neutral-50/30 rounded-none p-2 flex flex-col justify-start shadow-sm relative overflow-hidden">
                               <div>
@@ -1541,7 +1531,7 @@ export default function App() {
                               <h5 className="font-mono text-[10px] font-bold uppercase tracking-widest text-black/60 bg-black/5 inline-block px-3 py-1.5 border border-black/10">
                                 {group.serviceName}
                               </h5>
-                              <div className="flex flex-wrap gap-3 md:gap-4">
+                              <div className="flex flex-wrap justify-center gap-3 md:gap-4">
                                 {group.works.map((item, idx) => {
                                    const targetService = services.find(s => s.name === group.serviceName);
                                    return (

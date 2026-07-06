@@ -44,22 +44,24 @@ export default function ServiceInnerView({
   const [activeBrand, setActiveBrand] = useState<string | null>(initialBrand || null);
 
   const isShootService = service.id === 'ai-photo-shoot' || service.id === 'ai-video-shoot';
-  const hasFixedCategories = !!SERVICE_CATEGORIES[service.id];
+  // #5 — All services now derive categories dynamically from their subsection data
+  // This fixes insta-grid-stories and other services where category filter was not working
+  const hasFixedCategories = !isShootService && !['automation', 'website-design', 'brand-building'].includes(service.id);
 
   const getExistingCategories = () => {
-    if (hasFixedCategories) return SERVICE_CATEGORIES[service.id];
+    // For shoot services, collect from data (not hardcoded)
     const cats = new Set<string>();
-    if (isShootService) {
-      cats.add('Clothing Shoot');
-      cats.add('Footwear Shoot');
-    }
     service.subsections?.forEach(sub => {
-      if (sub.subCategory) cats.add(sub.subCategory);
+      if (sub.subCategory && sub.subCategory !== 'Custom') cats.add(sub.subCategory);
     });
+    // Fallback to SERVICE_CATEGORIES if no data categories exist yet
+    if (cats.size === 0 && SERVICE_CATEGORIES[service.id]) {
+      return SERVICE_CATEGORIES[service.id];
+    }
     return Array.from(cats);
   };
 
-  const categories = ['All', ...getExistingCategories().filter(cat => cat !== 'Custom')];
+  const categories = ['All', ...getExistingCategories()];
 
   const filteredSubsections = (() => {
     let items = service.subsections;
@@ -317,6 +319,7 @@ export default function ServiceInnerView({
           <div className="w-full md:w-[80%] flex-grow md:h-full flex flex-col min-h-0 relative bg-[#fcfcfc]">
             <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-[40vh] md:min-h-0 bg-[#f3f3f3]">
               {isVideoUrl(activePreviewUrl) ? (
+                // #7 — autoPlay when shoot modal opens
                 <video src={activePreviewUrl} className="w-full h-full object-contain" controls autoPlay loop playsInline />
               ) : (
                 <img src={activePreviewUrl} alt={selectedItem.title} className="w-full h-full object-contain" />
@@ -403,20 +406,21 @@ export default function ServiceInnerView({
   );
 
   // Image-only cards: E-Invitation, Catalog, Insta Grid
+  // #2 — Use object-contain so images are not cropped; padded background gives context
   const renderImageOnlyCards = () => (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-5">
       {filteredSubsections.map((sub, idx) => (
         <div
           key={idx}
           onClick={() => openItem(sub)}
-          className="group cursor-pointer rounded-none overflow-hidden bg-[#eaeaea] relative aspect-[3/4] shadow-sm hover:shadow-xl transition-all duration-500"
+          className="group cursor-pointer rounded-none overflow-hidden bg-[#f0f0f0] relative aspect-[3/4] shadow-sm hover:shadow-xl transition-all duration-500 flex items-center justify-center"
         >
           <img
             src={sub.visualUrl}
             alt={sub.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-700"
           />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-300" />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
           {sub.instaLink && (
             <a
               href={sub.instaLink}
@@ -668,8 +672,10 @@ export default function ServiceInnerView({
           <div className="-mx-4 sm:mx-0">
             <div className="flex flex-nowrap gap-4 sm:gap-6 overflow-x-auto pb-6 pt-2 px-4 sm:px-0 justify-start md:justify-center scrollbar-hide w-full" style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}>
               {categories.filter(cat => cat !== 'All').map((cat, idx) => {
+                // #6/#12 — Use admin-set category cover image if available, else fallback to first item's visual
+                const adminCover = service.categoryCoverImages?.[cat];
                 const coverItem = service.subsections.find(sub => (sub.subCategory || 'General') === cat);
-                const coverUrl = coverItem?.visualUrl || service.image;
+                const coverUrl = adminCover || coverItem?.visualUrl || service.image;
                 const itemCount = service.subsections.filter(sub => (sub.subCategory || 'General') === cat).length;
                 return (
                   <div key={idx} onClick={() => setSelectedCategory(cat)} className="relative shrink-0 w-[240px] xs:w-[260px] sm:w-[280px] aspect-[3/4.2] rounded-none overflow-hidden group cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 bg-[#eaeaea]">
@@ -702,8 +708,8 @@ export default function ServiceInnerView({
               </button>
             )}
 
-            {/* Category pills for services with fixed categories */}
-            {hasFixedCategories && (
+            {/* Category pills — show for all services that have categories */}
+            {categories.length > 1 && (
               <div className="flex flex-wrap gap-2">
                 {categories.map(cat => (
                   <button

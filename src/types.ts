@@ -25,6 +25,7 @@ export interface ServiceDetail {
   image: string;
   features: string[];
   subsections: ServiceSubsection[];
+  categoryCoverImages?: Record<string, string>; // key = category name, value = image URL
 }
 
 export interface BrandWorkItem {
@@ -302,9 +303,16 @@ export const FEATURED_PROJECTS: PortfolioProject[] = [
   }
 ];
 
+export interface LandingStat {
+  value: number;
+  suffix: string;
+  label: string;
+}
+
 export interface SiteSettings {
   useHeroAnimation: boolean;
   heroSlides: string[];
+  liveStatsOverrides?: Record<string, number>;
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -318,5 +326,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?auto=format&fit=crop&q=80&w=1200",
     "https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?auto=format&fit=crop&q=80&w=1200",
     "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200"
-  ]
+  ],
+  liveStatsOverrides: {}
 };

@@ -14,6 +14,25 @@ export default function AnimatedHero({ slides }: AnimatedHeroProps) {
   const [flashingDone, setFlashingDone] = useState(hasSeenIntro);
   const [progress, setProgress] = useState(hasSeenIntro ? 100 : 0);
 
+  // #10 — Lock body scroll during loading animation
+  useEffect(() => {
+    if (hasSeenIntro || slides.length === 0) return;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+    return () => { 
+      document.body.style.overflow = ''; 
+      document.documentElement.style.overflow = '';
+    };
+  }, [hasSeenIntro, slides.length]);
+
+  useEffect(() => {
+    if (flashingDone) {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+  }, [flashingDone]);
+
   useEffect(() => {
     if (hasSeenIntro) return;
 
@@ -25,9 +44,8 @@ export default function AnimatedHero({ slides }: AnimatedHeroProps) {
 
     let intervalId: NodeJS.Timeout;
     let frame = 0;
-    const totalFrames = 20; // Will loop slides for about 2.4 seconds
+    const totalFrames = 20;
     
-    // Fast flashing interval
     intervalId = setInterval(() => {
       frame++;
       if (frame < totalFrames) {
@@ -37,17 +55,16 @@ export default function AnimatedHero({ slides }: AnimatedHeroProps) {
         setCurrentSlideIndex(frame % slides.length);
         setProgress(100);
         clearInterval(intervalId);
-        // Wait a moment on the final image before transitioning
         setTimeout(() => {
           setFlashingDone(true);
           hasSeenIntroGlobal = true;
           setTimeout(() => setShowLogos(true), 100);
         }, 400);
       }
-    }, 120); // 120ms per image
+    }, 120);
 
     return () => clearInterval(intervalId);
-  }, [hasSeenIntro, slides.length]); // Empty dependency array so it never resets on re-render
+  }, [hasSeenIntro, slides.length]);
 
   return (
     <section id="hero-landing-section" className="relative w-full h-[100vh] min-h-[600px] overflow-hidden bg-[#F8F6F1] flex flex-col items-center justify-center">
