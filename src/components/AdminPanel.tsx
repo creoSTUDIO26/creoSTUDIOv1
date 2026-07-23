@@ -189,6 +189,10 @@ export default function AdminPanel({
   const [statusMsg, setStatusMsg] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetAdminPass, setResetAdminPass] = useState('');
+  const [resetSecurityPin, setResetSecurityPin] = useState('');
+  const [resetError, setResetError] = useState('');
   const [pendingTabSwitch, setPendingTabSwitch] = useState<Tab | null>(null);
 
   useEffect(() => {
@@ -636,8 +640,24 @@ export default function AdminPanel({
   };
 
   const handleResetClick = async () => {
-    if (!window.confirm('WARNING: This will reset all service details, work subsections, and inquiries to default values. Continue?')) return;
+    setShowResetModal(true);
+    setResetAdminPass('');
+    setResetSecurityPin('');
+    setResetError('');
+  };
 
+  const executeDatabaseReset = async () => {
+    if (resetAdminPass !== 'CS@admin26') {
+      setResetError('Invalid Admin Password. Reset aborted.');
+      return;
+    }
+
+    if (resetSecurityPin !== '020798') {
+      setResetError('Invalid Security PIN. Reset aborted.');
+      return;
+    }
+
+    setShowResetModal(false);
     setIsResetting(true);
     try {
       await resetDatabase();
@@ -1931,7 +1951,7 @@ export default function AdminPanel({
                             </div>
                           </div>
                           <span className="font-mono text-xs text-[#007A93] bg-[#007A93]/10 px-2 py-0.5 border border-[#007A93]/20">
-                            {brand.workItems?.length || 0} items
+                            {(brand.workItems?.length || 0) + services.reduce((acc, s) => acc + (s.subsections?.filter(sub => sub.brandName?.toLowerCase() === brand.name.toLowerCase()).length || 0), 0)} items
                           </span>
                         </div>
 
@@ -2238,7 +2258,12 @@ export default function AdminPanel({
                     <div className="space-y-4">
                       <h3 className="font-display text-lg font-bold uppercase tracking-tight">Active Brand Registrations</h3>
                       <div className="grid grid-cols-1 gap-4">
-                        {clients.map((client) => (
+                        {clients.map((client) => {
+                          const legacyCount = client.workItems?.length || 0;
+                          const serviceCount = services.reduce((acc, s) => acc + (s.subsections?.filter(sub => sub.brandName?.toLowerCase() === client.name.toLowerCase()).length || 0), 0);
+                          const totalWorkCount = legacyCount + serviceCount;
+                          
+                          return (
                           <div key={client.id} className="bg-gray-50 border border-gray-200 p-5 rounded-none flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                               {client.logoImage ? (
@@ -2268,7 +2293,7 @@ export default function AdminPanel({
                                 onClick={() => setSelectedBrandIdForWork(client.id)}
                                 className="px-3 py-2 bg-[#007A93]/15 hover:bg-[#007A93]/25 border border-[#007A93]/35 text-[#007A93] hover:text-gray-900 rounded-none text-xs font-mono uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5"
                               >
-                                <Plus className="w-3.5 h-3.5" /> Work ({client.workItems?.length || 0})
+                                <Plus className="w-3.5 h-3.5" /> Work ({totalWorkCount})
                               </button>
 
                               <button
@@ -2287,7 +2312,8 @@ export default function AdminPanel({
                               </button>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -2469,6 +2495,84 @@ export default function AdminPanel({
                   className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-mono font-bold uppercase tracking-widest transition-colors cursor-pointer"
                 >
                   Discard & Leave
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Database Security Modal */}
+      <AnimatePresence>
+        {showResetModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white border border-gray-200 shadow-2xl max-w-md w-full p-8 text-center relative"
+            >
+              <button 
+                onClick={() => setShowResetModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="mx-auto w-12 h-12 bg-rose-50 flex items-center justify-center rounded-full mb-4">
+                <AlertCircle className="w-6 h-6 text-rose-500" />
+              </div>
+              
+              <h3 className="font-display text-2xl font-bold uppercase text-gray-900 tracking-tight mb-2">Security Verification</h3>
+              <p className="text-gray-500 text-xs font-sans mb-6">
+                WARNING: This will reset all service details, work subsections, and inquiries to default values. Please verify your credentials to proceed.
+              </p>
+
+              <div className="space-y-4 text-left mb-6">
+                <div>
+                  <label className="block font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-1">Step 1: Admin Password</label>
+                  <input
+                    type="password"
+                    value={resetAdminPass}
+                    onChange={(e) => setResetAdminPass(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 focus:border-rose-500 text-gray-900 px-4 py-3 rounded-none outline-none transition-colors font-mono text-xs"
+                    placeholder="Enter Admin Password"
+                  />
+                </div>
+                <div>
+                  <label className="block font-mono text-[10px] text-gray-500 uppercase tracking-widest mb-1">Step 2: Security PIN</label>
+                  <input
+                    type="password"
+                    value={resetSecurityPin}
+                    onChange={(e) => setResetSecurityPin(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 focus:border-rose-500 text-gray-900 px-4 py-3 rounded-none outline-none transition-colors font-mono text-xs"
+                    placeholder="Enter 6-digit PIN"
+                    maxLength={6}
+                  />
+                </div>
+                {resetError && (
+                  <p className="text-rose-500 font-mono text-[10px] uppercase text-center mt-2">{resetError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="w-full px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-mono font-bold uppercase tracking-widest transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeDatabaseReset}
+                  disabled={!resetAdminPass || !resetSecurityPin}
+                  className="w-full px-5 py-3 bg-rose-500 hover:bg-rose-600 text-white text-xs font-mono font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Confirm Reset
                 </button>
               </div>
             </motion.div>
