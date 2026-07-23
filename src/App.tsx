@@ -336,6 +336,12 @@ export default function App() {
   });
 
   const [selectedBrand, setSelectedBrand] = useState<ClientProfile | null>(null);
+  const [brandModalTab, setBrandModalTab] = useState<string | null>(null);
+  
+  useEffect(() => {
+    setBrandModalTab(null);
+  }, [selectedBrand]);
+
   const [serviceParams, setServiceParams] = useState<{subId?: string; brand?: string} | null>(null);
 
   // Custom Hash Router State
@@ -1525,49 +1531,70 @@ export default function App() {
                       )}
 
                       {hasDynamicWorks && (
-                        <div className="flex overflow-x-auto gap-4 md:gap-6 pb-4 snap-x snap-mandatory hide-scrollbar" style={{WebkitOverflowScrolling: 'touch'}}>
-                          {groupedWorks.map((group, gIdx) => (
-                            <div key={gIdx} className={`shrink-0 snap-start space-y-3 ${groupedWorks.length === 1 ? 'w-full' : 'w-[90%] md:w-[65%]'}`}>
-                              <h5 className="font-mono text-[10px] font-bold uppercase tracking-widest text-black/60 bg-black/5 inline-block px-3 py-1.5 border border-black/10">
-                                {group.serviceName}
-                              </h5>
-                              <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-                                {group.works.map((item, idx) => {
-                                   const targetService = services.find(s => s.name === group.serviceName);
-                                   return (
-                                   <div 
-                                     key={idx} 
-                                     onClick={() => {
-                                       if (targetService) {
-                                         setServiceParams({ subId: item.id, brand: selectedBrand.name });
-                                         setSelectedBrand(null);
-                                         navigateTo('service', targetService.id);
-                                       }
-                                     }}
-                                     className="w-36 md:w-44 shrink-0 border border-neutral-100 bg-neutral-50/30 rounded-none p-2 flex flex-col justify-start shadow-sm relative overflow-hidden group cursor-pointer hover:border-[#007A93]/30 transition-colors">
-                                     <div>
-                                       <div className="flex justify-between items-center mb-1.5">
-                                         <span className="font-mono text-[9px] text-[#007A93] uppercase bg-[#007A93]/10 px-1.5 py-0.5 rounded-none font-bold">
-                                           {item.visualType}
-                                         </span>
-                                       </div>
-                                       <h5 className="font-display text-[10px] sm:text-xs font-bold text-black uppercase mb-0 line-clamp-2 leading-tight">
-                                         {item.title}
-                                       </h5>
-                                     </div>
-                                     <div className="mt-2 rounded-none overflow-hidden h-20 md:h-24 bg-transparent relative flex items-center justify-center">
-                                       {item.visualType === 'video' ? (
-                                         <video src={item.visualUrl} className="w-full h-full object-contain" controls playsInline />
-                                       ) : (
-                                         <img src={item.visualUrl} alt={item.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />
-                                       )}
-                                     </div>
-                                   </div>
-                                   );
-                                })}
-                              </div>
+                        <div className="space-y-4">
+                          {/* Tabs Header */}
+                          {groupedWorks.length > 1 && (
+                            <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar">
+                              {groupedWorks.map((group, gIdx) => (
+                                <button
+                                  key={gIdx}
+                                  onClick={() => setBrandModalTab(group.serviceName)}
+                                  className={`px-4 py-2 font-mono text-[10px] uppercase font-bold tracking-widest whitespace-nowrap transition-colors border ${
+                                    (brandModalTab === group.serviceName || (!brandModalTab && gIdx === 0))
+                                      ? 'bg-black text-white border-black'
+                                      : 'bg-white text-black/60 border-black/10 hover:border-black/30'
+                                  }`}
+                                >
+                                  {group.serviceName}
+                                </button>
+                              ))}
                             </div>
-                          ))}
+                          )}
+                          
+                          {/* Tab Content */}
+                          <div>
+                            {groupedWorks
+                              .filter((group, gIdx) => (brandModalTab === group.serviceName || (!brandModalTab && gIdx === 0)))
+                              .map((group, gIdx) => (
+                              <div key={gIdx} className="space-y-3">
+                                <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                                  {group.works.map((item, idx) => {
+                                     const targetService = services.find(s => s.name === group.serviceName);
+                                     return (
+                                     <div 
+                                       key={idx} 
+                                       onClick={() => {
+                                         if (targetService) {
+                                           setServiceParams({ subId: item.id, brand: selectedBrand.name });
+                                           setSelectedBrand(null);
+                                           navigateTo('service', targetService.id);
+                                         }
+                                       }}
+                                       className="w-36 md:w-44 shrink-0 border border-neutral-100 bg-neutral-50/30 rounded-none p-2 flex flex-col justify-start shadow-sm relative overflow-hidden group cursor-pointer hover:border-[#007A93]/30 transition-colors">
+                                       <div>
+                                         <div className="flex justify-between items-center mb-1.5">
+                                           <span className="font-mono text-[9px] text-[#007A93] uppercase bg-[#007A93]/10 px-1.5 py-0.5 rounded-none font-bold">
+                                             {item.visualType}
+                                           </span>
+                                         </div>
+                                         <h5 className="font-display text-[10px] sm:text-xs font-bold text-black uppercase mb-0 line-clamp-2 leading-tight">
+                                           {item.title}
+                                         </h5>
+                                       </div>
+                                       <div className="mt-2 rounded-none overflow-hidden h-20 md:h-24 bg-transparent relative flex items-center justify-center">
+                                         {item.visualType === 'video' ? (
+                                           <video src={item.visualUrl} className="w-full h-full object-contain" controls playsInline />
+                                         ) : (
+                                           <img src={item.visualUrl} alt={item.title} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />
+                                         )}
+                                       </div>
+                                     </div>
+                                     );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
