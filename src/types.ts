@@ -3,7 +3,7 @@ export interface ServiceSubsection {
   title: string;
   description: string;
   visualUrl: string;
-  visualType: 'image' | 'video' | 'automation' | 'pdf' | 'website';
+  visualType: 'image' | 'video' | 'automation' | 'pdf' | 'website' | 'text';
   meta?: string;
   subCategory?: string;
   originalUrls?: string[];
@@ -15,6 +15,7 @@ export interface ServiceSubsection {
   pdfUrl?: string;
   popupType?: 'image' | 'video' | 'pdf' | 'website-embed' | 'website-link' | 'text';
   subSubCategory?: string;
+  isComparisonMode?: boolean;
 }
 
 export interface ServiceDetail {
@@ -26,6 +27,7 @@ export interface ServiceDetail {
   features: string[];
   subsections: ServiceSubsection[];
   categoryCoverImages?: Record<string, string>; // key = category name, value = image URL
+  categoryOrder?: string[]; // ordered list of category names for display ordering
 }
 
 export interface BrandWorkItem {

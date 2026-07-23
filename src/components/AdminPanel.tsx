@@ -21,7 +21,10 @@ import {
   Loader,
   AlertCircle,
   Award,
-  Globe
+  Globe,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp
 } from 'lucide-react';
 import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial, SiteSettings } from '../types';
 import { supabase } from '../lib/supabase';
@@ -140,12 +143,18 @@ export default function AdminPanel({
   const [newMeta, setNewMeta] = useState('');
   const [newOriginalUrls, setNewOriginalUrls] = useState('');
   const [newGeneratedVariants, setNewGeneratedVariants] = useState('');
+  const [newIsComparisonMode, setNewIsComparisonMode] = useState(false);
 
   // Drag & Drop and Collapsible States for Subsections
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const [manageWorksOpen, setManageWorksOpen] = useState(false);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
   const [draggedItemService, setDraggedItemService] = useState<string | null>(null);
   const [previewServices, setPreviewServices] = useState<ServiceDetail[] | null>(null);
+
+  // Category Drag & Drop State (for reordering category groups)
+  const [draggedCatName, setDraggedCatName] = useState<string | null>(null);
+  const [draggedCatService, setDraggedCatService] = useState<string | null>(null);
 
   // Per-service extra fields
   const [newBrandName, setNewBrandName] = useState('');
@@ -343,6 +352,7 @@ export default function AdminPanel({
     setNewPdfUrl(item.pdfUrl || '');
     setNewPopupType(item.popupType || 'image');
     setNewSubSubCategory(item.subSubCategory || '');
+    setNewIsComparisonMode(item.isComparisonMode || false);
 
     const standardCats = ADMIN_CATEGORIES[serviceId] || ['General'];
     if (item.subCategory && !standardCats.includes(item.subCategory) && item.subCategory !== 'General') {
@@ -361,6 +371,7 @@ export default function AdminPanel({
     setNewCustomCategory(''); setNewOriginalUrls(''); setNewGeneratedVariants('');
     setNewBrandName(''); setNewInstaLink(''); setNewWebsiteUrl(''); setNewPdfUrl('');
     setNewPopupType('image'); setNewSubSubCategory('');
+    setNewIsComparisonMode(false);
   };
 
   const handleAddSubsection = async (e: React.FormEvent) => {
@@ -393,6 +404,7 @@ export default function AdminPanel({
       pdfUrl: newPdfUrl.trim() || undefined,
       popupType: (newPopupType as ServiceSubsection['popupType']) || undefined,
       subSubCategory: newSubSubCategory.trim() || undefined,
+      isComparisonMode: newIsComparisonMode,
     };
 
     const updatedServices = services.map(s => {
@@ -634,6 +646,56 @@ export default function AdminPanel({
       triggerToast('Failed to reset database.');
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleMoveCategory = async (e: React.MouseEvent, serviceId: string, category: string, direction: 'up' | 'down') => {
+    e.stopPropagation();
+
+    const service = services.find(s => s.id === serviceId);
+    if (!service) return;
+
+    let currentOrder = service.categoryOrder || [];
+    const allCategories = Array.from(new Set(service.subsections.map(sub => sub.subCategory || 'General')));
+    
+    currentOrder = currentOrder.filter(cat => allCategories.includes(cat));
+    allCategories.forEach(cat => {
+      if (!currentOrder.includes(cat)) currentOrder.push(cat);
+    });
+
+    const index = currentOrder.indexOf(category);
+    if (index === -1) return;
+
+    if (direction === 'up' && index > 0) {
+      const temp = currentOrder[index - 1];
+      currentOrder[index - 1] = currentOrder[index];
+      currentOrder[index] = temp;
+    } else if (direction === 'down' && index < currentOrder.length - 1) {
+      const temp = currentOrder[index + 1];
+      currentOrder[index + 1] = currentOrder[index];
+      currentOrder[index] = temp;
+    } else {
+      return;
+    }
+
+    setIsSaving(true);
+    const updatedServices = services.map(s => {
+      if (s.id === serviceId) {
+        return {
+          ...s,
+          categoryOrder: currentOrder
+        };
+      }
+      return s;
+    });
+
+    try {
+      await updateServices(updatedServices);
+      triggerToast('Category order updated!');
+    } catch (err) {
+      triggerToast('Failed to update order.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1435,6 +1497,18 @@ export default function AdminPanel({
                       {/* Originals / Variants - only for shoot services */}
                       {isShootService && (
                         <>
+                          <div className="grid grid-cols-1 gap-6 items-center border-t border-gray-200 pt-4">
+                            <label className="flex items-center gap-3 cursor-pointer p-4 bg-gray-50 border border-gray-200 w-max hover:bg-gray-100 transition-colors select-none">
+                              <input type="checkbox" checked={newIsComparisonMode} onChange={(e) => setNewIsComparisonMode(e.target.checked)} className="w-4 h-4 accent-[#007A93]" />
+                              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-700 font-bold">Enable 1:1 Comparison Mode (Stacked Pairs)</span>
+                            </label>
+                            <p className="text-[10px] font-sans text-gray-500 -mt-4">
+                              Pairs Original Input #1 with Final Visual #1, Original #2 with Final #2, etc. Ideal for showing direct before-and-after transformations.
+                            </p>
+                            <p className="text-[10px] font-sans text-orange-600 -mt-4">
+                              <strong>Upload Tip:</strong> To keep pairs in the correct sequence, rename your files (e.g. 1.jpg, 2.jpg) before batch uploading, or upload them one by one. You can also manually reorder the comma-separated URLs below.
+                            </p>
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
                             <div className="md:col-span-4">
                               {/* #13 — Drag & drop for originals */}
@@ -1514,7 +1588,18 @@ export default function AdminPanel({
 
                 {/* Listing current subsections to delete & reorder */}
                 <div className="border-t border-gray-200 pt-10 mt-10">
-                  <h3 className="font-display text-xl font-bold uppercase tracking-tight mb-6">Manage Published Subsections</h3>
+                  <div 
+                    className="flex justify-between items-center mb-6 cursor-pointer hover:bg-gray-50 p-2 -mx-2 transition-colors select-none" 
+                    onClick={() => setManageWorksOpen(!manageWorksOpen)}
+                  >
+                    <h3 className="font-display text-xl font-bold uppercase tracking-tight">Manage Published Subsections</h3>
+                    <button type="button" className="p-2 bg-gray-100 hover:bg-gray-200 rounded-none transition-colors">
+                      {manageWorksOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                    </button>
+                  </div>
+
+                  {manageWorksOpen && (
+                    <div className="animate-fadeIn">
 
                   {/* #12 — Category Cover Images for Shoot Services */}
                   {services.filter(s => s.id === 'ai-photo-shoot' || s.id === 'ai-video-shoot').map(s => (
@@ -1583,25 +1668,61 @@ export default function AdminPanel({
 
                           <div className="space-y-6 mt-4">
                             {/* Group subsections by category */}
-                            {Object.entries(
-                              s.subsections.reduce((acc, sub, idx) => {
+                            {(() => {
+                              const grouped = s.subsections.reduce((acc, sub, idx) => {
                                 const cat = sub.subCategory || 'General';
                                 if (!acc[cat]) acc[cat] = [];
                                 acc[cat].push({ sub, idx });
                                 return acc;
-                              }, {} as Record<string, { sub: any, idx: number }[]>)
-                            ).map(([category, items]) => {
-                              const isCollapsed = collapsedCategories[`${s.id}-${category}`];
-                              return (
-                                <div key={category} className="space-y-3">
-                                  {/* Category Header */}
-                                  <div 
-                                    className="flex justify-between items-center cursor-pointer bg-gray-100 hover:bg-gray-200 transition-colors p-3 border-l-4 border-[#007A93]"
-                                    onClick={() => setCollapsedCategories(prev => ({ ...prev, [`${s.id}-${category}`]: !isCollapsed }))}
-                                  >
-                                    <h5 className="font-sans text-xs font-bold text-gray-700 uppercase tracking-widest">{category} <span className="text-gray-400 font-normal ml-1">({items.length})</span></h5>
-                                    <span className="text-gray-400 font-mono text-[10px]">{isCollapsed ? 'SHOW ▼' : 'HIDE ▲'}</span>
-                                  </div>
+                              }, {} as Record<string, { sub: any, idx: number }[]>);
+                              
+                              const cats = Object.keys(grouped);
+                              const order = s.categoryOrder || [];
+                              if (order.length > 0) {
+                                cats.sort((a, b) => {
+                                  const indexA = order.indexOf(a);
+                                  const indexB = order.indexOf(b);
+                                  if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                  if (indexA !== -1) return -1;
+                                  if (indexB !== -1) return 1;
+                                  return 0;
+                                });
+                              }
+
+                              return cats.map((category, catIdx) => {
+                                const items = grouped[category];
+                                const isCollapsed = collapsedCategories[`${s.id}-${category}`];
+                                return (
+                                  <div key={category} className="space-y-3">
+                                    {/* Category Header */}
+                                    <div 
+                                      className="flex justify-between items-center cursor-pointer bg-gray-100 hover:bg-gray-200 transition-colors p-3 border-l-4 border-[#007A93]"
+                                      onClick={() => setCollapsedCategories(prev => ({ ...prev, [`${s.id}-${category}`]: !isCollapsed }))}
+                                    >
+                                      <h5 className="font-sans text-xs font-bold text-gray-700 uppercase tracking-widest">{category} <span className="text-gray-400 font-normal ml-1">({items.length})</span></h5>
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1 bg-white border border-gray-200 p-0.5 rounded-sm shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                          <button 
+                                            disabled={catIdx === 0}
+                                            onClick={(e) => handleMoveCategory(e, s.id, category, 'up')}
+                                            className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            title="Move Category Up"
+                                          >
+                                            <ChevronUp className="w-3.5 h-3.5 text-gray-600" />
+                                          </button>
+                                          <div className="w-[1px] h-3 bg-gray-200"></div>
+                                          <button 
+                                            disabled={catIdx === cats.length - 1}
+                                            onClick={(e) => handleMoveCategory(e, s.id, category, 'down')}
+                                            className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === cats.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            title="Move Category Down"
+                                          >
+                                            <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
+                                          </button>
+                                        </div>
+                                        <span className="text-gray-400 font-mono text-[10px] w-14 text-right">{isCollapsed ? 'SHOW ▼' : 'HIDE ▲'}</span>
+                                      </div>
+                                    </div>
 
                                   {/* Items List */}
                                   {!isCollapsed && (
@@ -1704,12 +1825,15 @@ export default function AdminPanel({
                                   )}
                                 </div>
                               );
-                            })}
+                            })
+                            })()}
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                    </div>
+                  )}
                 </div>
 
               </div>

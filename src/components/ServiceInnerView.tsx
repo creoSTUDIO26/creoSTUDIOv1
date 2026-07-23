@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ServiceDetail, ServiceSubsection } from '../types';
 import { ArrowLeft, Sparkles, Plus, Image, ArrowUpRight, Check, Sliders, Play, Cpu, Film, Compass, Globe, Upload, Loader, AlertCircle, X, ChevronLeft, ChevronRight, Instagram, ExternalLink, FileText, Download } from 'lucide-react';
+import { getThumbnailUrl } from '../lib/supabase';
 
 interface ServiceInnerViewProps {
   key?: string;
@@ -58,7 +59,20 @@ export default function ServiceInnerView({
     if (cats.size === 0 && SERVICE_CATEGORIES[service.id]) {
       return SERVICE_CATEGORIES[service.id];
     }
-    return Array.from(cats);
+    
+    const catsArray = Array.from(cats);
+    const order = service.categoryOrder || [];
+    if (order.length > 0) {
+      catsArray.sort((a, b) => {
+        const indexA = order.indexOf(a);
+        const indexB = order.indexOf(b);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return 0;
+      });
+    }
+    return catsArray;
   };
 
   const categories = ['All', ...getExistingCategories()];
@@ -121,7 +135,7 @@ export default function ServiceInnerView({
     if (newIdx < 0) newIdx = filteredSubsections.length - 1;
     const nextItem = filteredSubsections[newIdx];
     setSelectedItem(nextItem);
-    setActivePreviewUrl(nextItem.visualUrl);
+    setActivePreviewUrl(nextItem.generatedVariants?.[0] || nextItem.visualUrl);
   };
 
   const handleNextItem = (e: React.MouseEvent) => {
@@ -131,7 +145,7 @@ export default function ServiceInnerView({
     if (newIdx >= filteredSubsections.length) newIdx = 0;
     const nextItem = filteredSubsections[newIdx];
     setSelectedItem(nextItem);
-    setActivePreviewUrl(nextItem.visualUrl);
+    setActivePreviewUrl(nextItem.generatedVariants?.[0] || nextItem.visualUrl);
   };
 
   // --- Determine popup type for a given item ---
@@ -274,10 +288,102 @@ export default function ServiceInnerView({
     );
   };
 
-  // --- RENDER: Shoot Modal (existing 80/20 layout) ---
+  // --- RENDER: Shoot Modal (existing 80/20 layout or 1:1 Comparison) ---
   const renderShootModal = () => {
     if (!selectedItem) return null;
     const mediaGroup = getModalMediaGroup(selectedItem);
+
+    if (selectedItem.isComparisonMode && mediaGroup.originalUrls.length > 0) {
+      const allOutputs = [selectedItem.visualUrl, ...(selectedItem.generatedVariants || [])];
+      
+      return (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] bg-[#fafafa]/95 backdrop-blur-xl flex flex-col p-4 md:p-8 overflow-y-auto"
+          onClick={() => setSelectedItem(null)}
+        >
+          <button onClick={() => setSelectedItem(null)} className="fixed top-6 right-6 z-[250] p-3 bg-white hover:bg-black hover:text-white rounded-none border border-black/5 shadow-md text-black cursor-pointer transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+
+          {filteredSubsections.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); handlePrevItem(e); }}
+                className="fixed left-4 top-1/2 -translate-y-1/2 z-[250] p-3 bg-white/90 hover:bg-[#007A93] hover:text-white text-black rounded-none border border-black/5 shadow-md hover:scale-105 cursor-pointer transition-all hidden sm:flex"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleNextItem(e); }}
+                className="fixed right-4 top-1/2 -translate-y-1/2 z-[250] p-3 bg-white/90 hover:bg-[#007A93] hover:text-white text-black rounded-none border border-black/5 shadow-md hover:scale-105 cursor-pointer transition-all hidden sm:flex"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+          
+          <div className="w-full max-w-5xl mx-auto flex flex-col gap-16 py-12 mb-20" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-2">
+              <h3 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight text-black">{selectedItem.title}</h3>
+              <p className="text-xs font-mono text-black/50 uppercase tracking-widest mt-3">{selectedItem.meta || '1:1 Transformation Comparison'}</p>
+            </div>
+            
+            {/* Main overarching shoot image/video */}
+            <div className="w-full relative bg-[#fcfcfc] border border-black/10 shadow-xl overflow-hidden rounded-none mb-8">
+               <span className="absolute top-4 left-4 z-10 bg-[#007A93] text-white px-3 py-1.5 font-mono text-[10px] uppercase font-bold tracking-widest shadow-sm">Main Shoot Result</span>
+               <div className="w-full bg-[#f3f3f3] p-4 flex items-center justify-center min-h-[40vh] md:min-h-[60vh]">
+                 {isVideoUrl(selectedItem.visualUrl) ? (
+                    <video src={selectedItem.visualUrl} className="w-full h-auto max-h-[75vh] object-contain" controls autoPlay muted loop playsInline />
+                 ) : (
+                    <img src={selectedItem.visualUrl} alt="Main Visual" className="w-full h-auto max-h-[75vh] object-contain mx-auto drop-shadow-md" />
+                 )}
+               </div>
+            </div>
+
+            {mediaGroup.originalUrls.map((originalUrl, idx) => {
+              let outputUrl: string | undefined;
+              if (selectedItem.generatedVariants && selectedItem.generatedVariants.length > 0) {
+                outputUrl = selectedItem.generatedVariants[idx];
+              } else if (idx === 0) {
+                outputUrl = selectedItem.visualUrl;
+              }
+              if (!outputUrl) return null;
+
+              return (
+                <div key={idx} className="flex flex-col md:flex-row w-full bg-[#f5f5f5] border border-black/10 shadow-xl overflow-hidden rounded-none">
+                  {/* Left: Original */}
+                  <div className="w-full md:w-1/2 relative bg-[#eaeaea] p-4 flex flex-col border-b md:border-b-0 md:border-r border-black/10">
+                    <span className="absolute top-4 left-4 z-10 bg-white/90 px-3 py-1.5 font-mono text-[10px] uppercase font-bold tracking-widest border border-black/5 shadow-sm">Original Input #{idx + 1}</span>
+                    <div className="flex-1 min-h-[30vh] md:min-h-[50vh] flex items-center justify-center pt-12 pb-4">
+                      {isVideoUrl(originalUrl) ? (
+                        <video src={originalUrl} className="w-full h-auto max-h-[60vh] object-contain" controls autoPlay muted loop playsInline />
+                      ) : (
+                        <img src={originalUrl} alt={`Original ${idx + 1}`} className="w-full h-auto max-h-[60vh] object-contain drop-shadow-md" />
+                      )}
+                    </div>
+                  </div>
+                  {/* Right: Output */}
+                  <div className="w-full md:w-1/2 relative bg-[#fcfcfc] p-4 flex flex-col">
+                    <span className="absolute top-4 left-4 z-10 bg-[#007A93] text-white px-3 py-1.5 font-mono text-[10px] uppercase font-bold tracking-widest shadow-sm">Final Visual #{idx + 1}</span>
+                    <div className="flex-1 min-h-[30vh] md:min-h-[50vh] flex items-center justify-center pt-12 pb-4">
+                      {isVideoUrl(outputUrl) ? (
+                        <video src={outputUrl} className="w-full h-auto max-h-[60vh] object-contain" controls autoPlay muted loop playsInline />
+                      ) : (
+                        <img src={outputUrl} alt={`Generated ${idx + 1}`} className="w-full h-auto max-h-[60vh] object-contain drop-shadow-md" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -307,9 +413,9 @@ export default function ServiceInnerView({
             <span className="block font-mono text-[9px] text-black/40 uppercase tracking-widest md:mb-3 font-bold shrink-0 w-max md:w-auto mr-2 md:mr-0">Original Input</span>
             <div className="flex flex-row md:flex-col gap-2 shrink-0">
               {mediaGroup.originalUrls.map((url, idx) => (
-                <div key={idx} className={`relative w-14 h-14 md:w-full md:h-auto md:aspect-square shrink-0 bg-[#eaeaea] border rounded-none overflow-hidden group cursor-pointer transition-all ${activePreviewUrl === url ? 'border-[#007A93] scale-95 shadow-[#007A93]/20 shadow-md' : 'border-black/5 hover:border-black/20'}`} onClick={() => setActivePreviewUrl(url)}>
-                  {isVideoUrl(url) ? <video src={url} className="w-full h-full object-cover" muted loop playsInline /> : <img src={url} alt="Original input" className="w-full h-full object-cover" />}
-                  <div className="absolute inset-0 bg-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-[8px] font-mono font-bold uppercase tracking-wider text-black">View</span></div>
+                <div key={idx} className={`relative h-14 w-auto md:h-28 md:w-full shrink-0 flex items-center md:items-start justify-center overflow-hidden group cursor-pointer transition-all ${activePreviewUrl === url ? 'opacity-100 scale-95 drop-shadow-md' : 'opacity-60 hover:opacity-100 drop-shadow-sm'}`} onClick={() => setActivePreviewUrl(url)}>
+                  {isVideoUrl(url) ? <video src={url} className="h-full w-auto md:h-full md:w-auto max-w-full object-contain" autoPlay muted loop playsInline /> : <img src={url} alt="Original input" className="h-full w-auto md:h-full md:w-auto max-w-full object-contain" />}
+                  <div className="absolute inset-0 bg-white/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><span className="text-[8px] font-mono font-bold uppercase tracking-wider text-black bg-white/80 px-2 py-1">View</span></div>
                 </div>
               ))}
             </div>
@@ -320,7 +426,7 @@ export default function ServiceInnerView({
             <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-[40vh] md:min-h-0 bg-[#f3f3f3]">
               {isVideoUrl(activePreviewUrl) ? (
                 // #7 — autoPlay when shoot modal opens
-                <video src={activePreviewUrl} className="w-full h-full object-contain" controls autoPlay loop playsInline />
+                <video src={activePreviewUrl} className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
               ) : (
                 <img src={activePreviewUrl} alt={selectedItem.title} className="w-full h-full object-contain" />
               )}
@@ -342,7 +448,7 @@ export default function ServiceInnerView({
               <div className="flex gap-2.5 overflow-x-auto pb-1">
                 {mediaGroup.generatedVariants.map((url, idx) => (
                   <div key={idx} className={`relative w-16 h-16 shrink-0 bg-[#eaeaea] border rounded-none overflow-hidden cursor-pointer transition-all ${activePreviewUrl === url ? 'border-[#007A93] scale-95 shadow-lg shadow-[#007A93]/20' : 'border-black/5 hover:border-black/20'}`} onClick={() => setActivePreviewUrl(url)}>
-                    {isVideoUrl(url) ? <video src={url} className="w-full h-full object-cover" muted loop playsInline /> : <img src={url} alt="Variant output" className="w-full h-full object-cover" />}
+                    {isVideoUrl(url) ? <video src={url} className="w-full h-full object-cover" autoPlay muted loop playsInline /> : <img src={url} alt="Variant output" className="w-full h-full object-cover" />}
                   </div>
                 ))}
               </div>
@@ -360,7 +466,7 @@ export default function ServiceInnerView({
   // --- RENDER: Card layouts per service ---
   const openItem = (item: ServiceSubsection) => {
     setSelectedItem(item);
-    setActivePreviewUrl(item.visualUrl);
+    setActivePreviewUrl(item.generatedVariants?.[0] || item.visualUrl);
   };
 
   // Square cards: Website Design, Brand Building
@@ -374,8 +480,9 @@ export default function ServiceInnerView({
         >
           <div className="aspect-square overflow-hidden bg-[#eaeaea] relative">
             <img
-              src={sub.visualUrl}
+              src={getThumbnailUrl(sub.visualUrl, 600, 75)}
               alt={sub.brandName || sub.title}
+              loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
@@ -416,8 +523,9 @@ export default function ServiceInnerView({
           className="group cursor-pointer rounded-none overflow-hidden bg-[#f0f0f0] relative aspect-[3/4] shadow-sm hover:shadow-xl transition-all duration-500 flex items-center justify-center"
         >
           <img
-            src={sub.visualUrl}
+            src={getThumbnailUrl(sub.visualUrl, 600, 75)}
             alt={sub.title}
+            loading="lazy"
             className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-700"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
@@ -462,7 +570,7 @@ export default function ServiceInnerView({
             )}
           </div>
           <div className="lg:col-span-6 relative rounded-none overflow-hidden aspect-[4/3] bg-[#eaeaea]">
-            <img src={sub.visualUrl} alt={sub.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out" />
+            <img src={getThumbnailUrl(sub.visualUrl, 800, 80)} alt={sub.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
             <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur px-4 py-2 rounded-none text-[10px] font-sans font-bold text-black uppercase flex items-center gap-2 shadow-lg">
               <Play className="w-3 h-3 text-black" /> View Demo
@@ -479,7 +587,7 @@ export default function ServiceInnerView({
       {filteredSubsections.map((sub, idx) => (
         <div
           key={idx}
-          onClick={() => { setSelectedItem(sub); setActivePreviewUrl(sub.visualUrl); }}
+          onClick={() => { setSelectedItem(sub); setActivePreviewUrl(sub.generatedVariants?.[0] || sub.visualUrl); }}
           className="rounded-none overflow-hidden shadow-md border border-black/5 bg-[#eaeaea] group relative cursor-pointer aspect-[3/4]"
         >
           {sub.visualType === 'video' ? (
@@ -489,7 +597,7 @@ export default function ServiceInnerView({
             </div>
           ) : (
             <div className="relative w-full h-full">
-              <img src={sub.visualUrl} alt={sub.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <img src={getThumbnailUrl(sub.visualUrl, 600, 75)} alt={sub.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-colors" />
             </div>
           )}
@@ -528,8 +636,9 @@ export default function ServiceInnerView({
           >
             <div className="w-full flex-1 relative overflow-hidden">
               <img
-                src={firstSub.visualUrl}
+                src={getThumbnailUrl(firstSub.visualUrl, 600, 75)}
                 alt={brandName}
+                loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
@@ -600,7 +709,7 @@ export default function ServiceInnerView({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -15 }}
       transition={{ duration: 0.5 }}
-      className="relative w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10"
+      className="relative w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8 sm:pt-28 sm:pb-10"
     >
       {/* Back button & Service Navigation tabs */}
       <div className="mb-6 relative z-10 flex flex-col gap-3 border-b border-black/5 pb-4">
@@ -670,7 +779,7 @@ export default function ServiceInnerView({
         {/* Shoot services: category cards or back button */}
         {isShootService && selectedCategory === 'All' ? (
           <div className="-mx-4 sm:mx-0">
-            <div className="flex flex-nowrap gap-4 sm:gap-6 overflow-x-auto pb-6 pt-2 px-4 sm:px-0 justify-start md:justify-center scrollbar-hide w-full" style={{scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch'}}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pb-6 pt-2 px-4 sm:px-0 w-full">
               {categories.filter(cat => cat !== 'All').map((cat, idx) => {
                 // #6/#12 — Use admin-set category cover image if available, else fallback to first item's visual
                 const adminCover = service.categoryCoverImages?.[cat];
@@ -678,11 +787,11 @@ export default function ServiceInnerView({
                 const coverUrl = adminCover || coverItem?.visualUrl || service.image;
                 const itemCount = service.subsections.filter(sub => (sub.subCategory || 'General') === cat).length;
                 return (
-                  <div key={idx} onClick={() => setSelectedCategory(cat)} className="relative shrink-0 w-[240px] xs:w-[260px] sm:w-[280px] aspect-[3/4.2] rounded-none overflow-hidden group cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 bg-[#eaeaea]">
+                  <div key={idx} onClick={() => setSelectedCategory(cat)} className="relative w-full aspect-[3/4.2] rounded-none overflow-hidden group cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 bg-[#eaeaea]">
                     {isVideoUrl(coverUrl) ? (
                       <video src={coverUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" muted loop playsInline autoPlay />
                     ) : (
-                      <img src={coverUrl} alt={cat} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                      <img src={getThumbnailUrl(coverUrl, 400, 70)} alt={cat} loading="lazy" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                     <div className="absolute bottom-5 left-5 right-5 text-left">
@@ -693,7 +802,6 @@ export default function ServiceInnerView({
                   </div>
                 );
               })}
-              <div className="shrink-0 w-4 sm:w-0" aria-hidden="true" />
             </div>
           </div>
         ) : (
