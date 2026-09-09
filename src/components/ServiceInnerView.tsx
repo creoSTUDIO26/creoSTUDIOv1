@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { ServiceDetail, ServiceSubsection } from '../types';
-import { ArrowLeft, Sparkles, Plus, Image, ArrowUpRight, Check, Sliders, Play, Cpu, Film, Compass, Globe, Upload, Loader, AlertCircle, X, ChevronLeft, ChevronRight, Instagram, ExternalLink, FileText, Download } from 'lucide-react';
+import { ArrowLeft, Sparkles, Plus, Image, ArrowUpRight, Check, Sliders, Play, Cpu, Film, Compass, Globe, Upload, Loader, AlertCircle, X, ChevronLeft, ChevronRight, Instagram, ExternalLink, FileText, Download, Monitor, Tablet, Smartphone, Lock, RefreshCw } from 'lucide-react';
 import { getThumbnailUrl } from '../lib/supabase';
 
 interface ServiceInnerViewProps {
@@ -43,11 +43,11 @@ export default function ServiceInnerView({
   const [selectedItem, setSelectedItem] = useState<ServiceSubsection | null>(initialItem);
   const [activePreviewUrl, setActivePreviewUrl] = useState<string>(initialItem?.visualUrl || '');
   const [activeBrand, setActiveBrand] = useState<string | null>(initialBrand || null);
+  const [activeModalTab, setActiveModalTab] = useState<'video' | 'pdf' | 'image' | 'website'>('image');
+  const [deviceView, setDeviceView] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [iframeKey, setIframeKey] = useState<number>(0);
 
   const isShootService = service.id === 'ai-photo-shoot' || service.id === 'ai-video-shoot';
-  // #5 — All services now derive categories dynamically from their subsection data
-  // This fixes insta-grid-stories and other services where category filter was not working
-  const hasFixedCategories = !isShootService && !['automation', 'website-design', 'brand-building'].includes(service.id);
 
   const getExistingCategories = () => {
     // For shoot services, collect from data (not hardcoded)
@@ -98,6 +98,17 @@ export default function ServiceInnerView({
   const isVideoUrl = (url?: string) => {
     if (!url) return false;
     return /\.(mp4|webm|ogg|mov)$/i.test(url) || url.includes('video');
+  };
+
+  const getVideoEmbedUrl = (url?: string) => {
+    if (!url) return null;
+    const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]+)/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+    const loomMatch = url.match(/loom\.com\/(?:share|embed)\/([a-zA-Z0-9]+)/);
+    if (loomMatch) return `https://www.loom.com/embed/${loomMatch[1]}?autoplay=1`;
+    const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?([0-9]+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`;
+    return null;
   };
 
   // Modal media resolution for shoot services
@@ -158,10 +169,109 @@ export default function ServiceInnerView({
     return 'image';
   };
 
+  // --- Formatted Description Component for Structured Points, Headers & Flow ---
+  const FormattedDescription: React.FC<{ text?: string }> = ({ text }) => {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+
+    return (
+      <div className="space-y-2.5 font-sans text-xs sm:text-sm text-black/75 leading-relaxed">
+        {lines.map((line, idx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={idx} className="h-1.5" />;
+          }
+
+          // 1. Process / Workflow arrow pipeline (contains →)
+          if (trimmed.includes('→')) {
+            const steps = trimmed.split('→').map(s => s.trim()).filter(Boolean);
+            return (
+              <div key={idx} className="my-3 p-3 bg-black/[0.03] border border-black/10 rounded-none flex flex-wrap items-center gap-1.5 text-xs font-mono font-medium text-black">
+                {steps.map((step, sIdx) => (
+                  <React.Fragment key={sIdx}>
+                    <span className="bg-white px-2.5 py-1 border border-black/10 shadow-xs font-bold text-[10px] sm:text-[11px] uppercase tracking-wide text-black">
+                      {step}
+                    </span>
+                    {sIdx < steps.length - 1 && (
+                      <span className="text-[#007A93] font-bold px-0.5 text-xs">→</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            );
+          }
+
+          // 2. Section Header detection (e.g. "Key Features", "The Concept", "What We Delivered", "End-to-End Workflow", or short lines ending in colon)
+          const isKnownHeader = /^(Key Features|The Concept|What We Delivered|End-to-End Workflow|Workflow|Overview|Features|Highlights|Summary):?$/i.test(trimmed);
+          const isShortColonHeader = trimmed.length < 40 && trimmed.endsWith(':') && !trimmed.includes('—');
+          if (isKnownHeader || isShortColonHeader) {
+            return (
+              <div key={idx} className="pt-2.5 pb-1">
+                <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-black flex items-center gap-2 border-b border-black/10 pb-1.5 w-full">
+                  <span className="w-1.5 h-1.5 bg-[#007A93] shrink-0" />
+                  {trimmed.replace(/:$/, '')}
+                </h4>
+              </div>
+            );
+          }
+
+          // 3. Bullet Point / Feature item with separator (e.g. "Product Library — Store and manage...")
+          const hasDash = trimmed.includes(' — ') || trimmed.includes(' - ');
+          const isBulletList = trimmed.startsWith('•') || trimmed.startsWith('- ') || trimmed.startsWith('* ');
+
+          if (hasDash || isBulletList) {
+            let cleanLine = trimmed;
+            if (cleanLine.startsWith('•') || cleanLine.startsWith('- ') || cleanLine.startsWith('* ')) {
+              cleanLine = cleanLine.replace(/^[•\-*]\s*/, '');
+            }
+
+            const dashIndex = cleanLine.indexOf(' — ') !== -1 ? cleanLine.indexOf(' — ') : cleanLine.indexOf(' - ');
+            if (dashIndex !== -1) {
+              const title = cleanLine.substring(0, dashIndex).trim();
+              const desc = cleanLine.substring(dashIndex + 3).trim();
+              return (
+                <div key={idx} className="flex items-start gap-2.5 pl-1 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-none bg-black/40 mt-1.5 shrink-0" />
+                  <div className="text-xs sm:text-sm leading-relaxed text-black/75">
+                    <span className="text-black font-bold uppercase font-mono tracking-wider text-[11px] sm:text-xs mr-1.5">
+                      {title}
+                    </span>
+                    <span className="text-black/40 font-mono text-xs mr-1.5">—</span>
+                    <span>{desc}</span>
+                  </div>
+                </div>
+              );
+            } else {
+              return (
+                <div key={idx} className="flex items-start gap-2.5 pl-1 py-0.5">
+                  <span className="w-1.5 h-1.5 rounded-none bg-black/40 mt-1.5 shrink-0" />
+                  <span className="text-xs sm:text-sm text-black/75 leading-relaxed">{cleanLine}</span>
+                </div>
+              );
+            }
+          }
+
+          // 4. Standard text line with line-break preserved
+          return (
+            <p key={idx} className="text-xs sm:text-sm text-black/70 leading-relaxed whitespace-pre-line">
+              {trimmed}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // --- RENDER: Universal Popup ---
   // --- RENDER: Universal Popup ---
   const renderUniversalPopup = () => {
     if (!selectedItem) return null;
-    const popupType = getEffectivePopupType(selectedItem);
+    const hasVideo = !!(selectedItem.videoUrl || selectedItem.visualType === 'video' || isVideoUrl(selectedItem.visualUrl));
+    const hasPdf = !!selectedItem.pdfUrl;
+    const hasImage = !!(selectedItem.visualUrl && !isVideoUrl(selectedItem.visualUrl) && selectedItem.visualType !== 'pdf');
+    const hasWebsite = !!selectedItem.websiteUrl;
+    const availableFormatsCount = [hasVideo, hasPdf, hasImage, hasWebsite].filter(Boolean).length;
 
     return (
       <motion.div
@@ -214,55 +324,198 @@ export default function ServiceInnerView({
             </div>
           )}
 
+          {/* Multi-format switcher tabs if more than one media type is available */}
+          {availableFormatsCount > 1 && (
+            <div className="flex items-center gap-2 px-6 py-2.5 bg-[#fbfbfb] border-b border-black/5 overflow-x-auto shrink-0">
+              <span className="font-mono text-[9px] uppercase tracking-widest text-black/40 font-bold mr-1">Formats:</span>
+              {hasVideo && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('video')}
+                  className={`px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer rounded-none ${activeModalTab === 'video' ? 'bg-[#007A93] text-white shadow-sm' : 'bg-white text-black/70 hover:bg-black/5 border border-black/10'}`}
+                >
+                  <Play className="w-3 h-3" /> Video Demo
+                </button>
+              )}
+              {hasPdf && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('pdf')}
+                  className={`px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer rounded-none ${activeModalTab === 'pdf' ? 'bg-[#007A93] text-white shadow-sm' : 'bg-white text-black/70 hover:bg-black/5 border border-black/10'}`}
+                >
+                  <FileText className="w-3 h-3" /> PDF Document
+                </button>
+              )}
+              {hasImage && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('image')}
+                  className={`px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer rounded-none ${activeModalTab === 'image' ? 'bg-[#007A93] text-white shadow-sm' : 'bg-white text-black/70 hover:bg-black/5 border border-black/10'}`}
+                >
+                  <Image className="w-3 h-3" /> Visual / Screenshot
+                </button>
+              )}
+              {hasWebsite && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('website')}
+                  className={`px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer rounded-none ${activeModalTab === 'website' ? 'bg-[#007A93] text-white shadow-sm' : 'bg-white text-black/70 hover:bg-black/5 border border-black/10'}`}
+                >
+                  <Globe className="w-3 h-3" /> Live Demo
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Content Area */}
           <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-0 bg-[#f3f3f3]">
-            {popupType === 'pdf' && selectedItem.pdfUrl ? (
+            {activeModalTab === 'pdf' && selectedItem.pdfUrl ? (
               <iframe
                 src={selectedItem.pdfUrl}
                 className="w-full h-full border-none"
                 title={selectedItem.title}
               />
-            ) : popupType === 'website-embed' && selectedItem.websiteUrl ? (
-              <iframe
-                src={selectedItem.websiteUrl}
-                className="w-full h-full border-none"
-                title={selectedItem.title}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-              />
-            ) : popupType === 'website-link' && selectedItem.websiteUrl ? (
-              <div className="flex flex-col items-center justify-center gap-6 p-8 text-center">
-                <img src={selectedItem.visualUrl} alt={selectedItem.title} className="max-w-md w-full h-auto object-contain shadow-lg border border-black/5" />
-                <a
-                  href={selectedItem.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-4 bg-black text-white hover:bg-[#007A93] rounded-none font-mono text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <ExternalLink className="w-4 h-4" /> Visit Website
-                </a>
+            ) : activeModalTab === 'website' && selectedItem.websiteUrl ? (
+              <div className="w-full h-full flex flex-col bg-[#111] overflow-hidden">
+                {/* Browser Navigation & Device Toolbar */}
+                <div className="bg-[#1c1c1e] text-white/80 px-3 sm:px-4 py-2 flex items-center justify-between gap-3 shrink-0 border-b border-white/10 select-none">
+                  {/* Left: Window dots and site URL */}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 shrink-0 hidden sm:flex">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500/80 inline-block" />
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1 text-[11px] font-mono text-white/70 truncate flex-1 max-w-md">
+                      <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                      <span className="truncate">{selectedItem.websiteUrl}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIframeKey(k => k + 1)}
+                      className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                      title="Reload website"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Center: Device Switcher (Desktop, Tablet, Mobile) */}
+                  <div className="flex items-center gap-1 bg-white/5 p-0.5 border border-white/10 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setDeviceView('desktop')}
+                      className={`p-1.5 transition-colors ${deviceView === 'desktop' ? 'bg-[#007A93] text-white shadow-sm' : 'text-white/50 hover:text-white'}`}
+                      title="Desktop View (100%)"
+                    >
+                      <Monitor className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeviceView('tablet')}
+                      className={`p-1.5 transition-colors ${deviceView === 'tablet' ? 'bg-[#007A93] text-white shadow-sm' : 'text-white/50 hover:text-white'}`}
+                      title="Tablet View (768px)"
+                    >
+                      <Tablet className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeviceView('mobile')}
+                      className={`p-1.5 transition-colors ${deviceView === 'mobile' ? 'bg-[#007A93] text-white shadow-sm' : 'text-white/50 hover:text-white'}`}
+                      title="Mobile View (390px)"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Right: Open in new tab link */}
+                  <a
+                    href={selectedItem.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-[10px] font-mono text-white/80 hover:text-white px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/15 transition-colors shrink-0"
+                    title="Open in new window"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span className="hidden sm:inline">New Tab</span>
+                  </a>
+                </div>
+
+                {/* Live Interactive Iframe Frame */}
+                <div className="flex-1 w-full h-full flex items-center justify-center overflow-auto bg-[#0a0a0a] p-1 sm:p-2">
+                  <div
+                    className={`h-full transition-all duration-300 bg-white relative flex flex-col ${
+                      deviceView === 'mobile'
+                        ? 'w-[390px] max-w-full rounded-md shadow-2xl border-4 border-[#222]'
+                        : deviceView === 'tablet'
+                        ? 'w-[768px] max-w-full rounded-md shadow-2xl border-4 border-[#222]'
+                        : 'w-full shadow-lg'
+                    }`}
+                  >
+                    <iframe
+                      key={iframeKey}
+                      src={selectedItem.websiteUrl}
+                      className="w-full h-full border-none flex-1"
+                      title={selectedItem.title}
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    />
+                  </div>
+                </div>
               </div>
-            ) : popupType === 'video' ? (
-              <video
-                src={selectedItem.visualUrl}
-                className="w-full h-full object-contain"
-                controls
-                autoPlay
-                loop
-                playsInline
-              />
-            ) : popupType === 'text' ? (
+            ) : activeModalTab === 'video' ? (
+              (() => {
+                const vidUrl = selectedItem.videoUrl || (isVideoUrl(selectedItem.visualUrl) ? selectedItem.visualUrl : '');
+                const embedUrl = getVideoEmbedUrl(vidUrl);
+                if (embedUrl) {
+                  return (
+                    <iframe
+                      src={embedUrl}
+                      className="w-full h-full border-none"
+                      title={selectedItem.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  );
+                }
+                return (
+                  <video
+                    src={vidUrl || selectedItem.visualUrl}
+                    className="w-full h-full object-contain"
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                  />
+                );
+              })()
+            ) : selectedItem.visualType === 'text' ? (
               <div className="flex items-center justify-center p-8 md:p-16 h-full w-full overflow-y-auto">
-                <p className="font-sans text-lg sm:text-2xl text-black/80 leading-relaxed max-w-3xl text-center">
-                  {selectedItem.description}
-                </p>
+                <div className="max-w-3xl w-full text-left bg-white p-6 sm:p-8 border border-black/10 shadow-sm">
+                  <FormattedDescription text={selectedItem.description} />
+                </div>
               </div>
             ) : (
-              <img
-                src={activePreviewUrl || selectedItem.visualUrl}
-                alt={selectedItem.title}
-                className="w-full h-full object-contain"
-              />
+              <div className="w-full h-full flex flex-col items-center justify-center relative">
+                <img
+                  src={activePreviewUrl || selectedItem.visualUrl}
+                  alt={selectedItem.title}
+                  className="w-full h-full object-contain"
+                />
+                {((selectedItem.generatedVariants && selectedItem.generatedVariants.length > 0) || (selectedItem.originalUrls && selectedItem.originalUrls.length > 0)) && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur border border-black/10 p-2 flex gap-2 max-w-[90%] overflow-x-auto shadow-lg z-20">
+                    {[selectedItem.visualUrl, ...(selectedItem.generatedVariants || []), ...(selectedItem.originalUrls || [])].filter((u, i, arr) => arr.indexOf(u) === i && !isVideoUrl(u)).map((imgUrl, iIdx) => (
+                      <img
+                        key={iIdx}
+                        src={imgUrl}
+                        alt="Thumbnail"
+                        onClick={() => setActivePreviewUrl(imgUrl)}
+                        className={`w-12 h-12 object-cover cursor-pointer border transition-all shrink-0 ${activePreviewUrl === imgUrl ? 'border-[#007A93] scale-105' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -283,6 +536,331 @@ export default function ServiceInnerView({
               </button>
             </>
           )}
+        </motion.div>
+      </motion.div>
+    );
+  };
+
+  // --- RENDER: Website Design Case Study Modal (matching Image 3) ---
+  const renderWebsitePopup = () => {
+    if (!selectedItem) return null;
+
+    const allScreenshots = [
+      selectedItem.visualUrl,
+      ...(selectedItem.generatedVariants || []),
+      ...(selectedItem.originalUrls || [])
+    ].filter((u, i, arr) => Boolean(u) && arr.indexOf(u) === i && !isVideoUrl(u));
+
+    const currentIndex = filteredSubsections.findIndex(s => (s.id && s.id === selectedItem.id) || s.title === selectedItem.title);
+    const nextProject = filteredSubsections.length > 1
+      ? filteredSubsections[(currentIndex + 1) % filteredSubsections.length]
+      : null;
+
+    // Detect or generate workflow steps (Image 4)
+    const getWorkflowSteps = (): string[] | null => {
+      if (selectedItem.workflowSteps && selectedItem.workflowSteps.length > 0) {
+        return selectedItem.workflowSteps;
+      }
+      if (selectedItem.description) {
+        const lines = selectedItem.description.split('\n');
+        for (const line of lines) {
+          if (line.includes('->') || line.includes('→')) {
+            const parts = line
+              .replace(/^(workflow|pipeline|steps|end-to-end workflow):?/i, '')
+              .split(/->|→/)
+              .map(s => s.trim().toUpperCase())
+              .filter(Boolean);
+            if (parts.length >= 2) return parts;
+          }
+        }
+      }
+      if (service.id === 'automation' || selectedItem.visualType === 'automation') {
+        return [
+          'VISITOR',
+          'ENQUIRY FORM',
+          'SUBMISSION',
+          'CONFIRMATION TO SENDER + NOTIFICATION TO CLIENT',
+          'INSTAGRAM REDIRECT'
+        ];
+      }
+      return null;
+    };
+
+    const workflowSteps = getWorkflowSteps();
+    const cleanDescription = selectedItem.description
+      ? selectedItem.description
+          .split('\n')
+          .filter(line => !line.toLowerCase().includes('workflow:') && !line.includes('->') && !line.includes('→'))
+          .join('\n')
+          .trim() || selectedItem.description
+      : '';
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[200] bg-black/75 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-8 lg:p-12 overflow-y-auto"
+        onClick={() => setSelectedItem(null)}
+      >
+        <motion.div
+          initial={{ scale: 0.96, y: 24, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.96, y: 24, opacity: 0 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+          className="relative bg-[#FAF9F5] text-black border border-black/10 rounded-none w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Top navigation bar matching Image 3: Back button & Close button */}
+          <div className="px-6 sm:px-10 py-5 border-b border-black/5 bg-[#FAF9F5] flex items-center justify-between shrink-0">
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-sans font-medium text-black/70 hover:text-black transition-colors cursor-pointer group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span>Back</span>
+            </button>
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="p-1.5 text-black/40 hover:text-black hover:bg-black/5 transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Main scrollable 2-column layout */}
+          <div className="overflow-y-auto flex-1 px-6 sm:px-10 lg:px-14 py-8 sm:py-12">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+              
+              {/* Left Column: Title, Overview, Details, Next Project */}
+              <div className="lg:col-span-5 flex flex-col justify-between">
+                <div>
+                  {/* Huge Editorial Serif Title */}
+                  <h1 className="font-editorial text-4xl sm:text-6xl lg:text-7xl font-normal tracking-tight text-black uppercase leading-[0.95] mb-8 sm:mb-12">
+                    {selectedItem.brandName || selectedItem.title}
+                  </h1>
+
+                  {/* OVERVIEW Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 border-t border-black/10 pt-6 pb-8">
+                    <div className="sm:col-span-4">
+                      <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-black/40 font-bold block">
+                        OVERVIEW
+                      </span>
+                    </div>
+                    <div className="sm:col-span-8 space-y-6">
+                      <div className="font-sans text-xs sm:text-sm text-black/75 leading-relaxed">
+                        <FormattedDescription text={cleanDescription} />
+                      </div>
+
+                      {/* END-TO-END WORKFLOW (Matching Image 4) */}
+                      {workflowSteps && workflowSteps.length > 0 && (
+                        <div className="space-y-3 pt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-[#007A93] shrink-0" />
+                            <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-black">
+                              END-TO-END WORKFLOW
+                            </h4>
+                          </div>
+
+                          <div className="bg-[#f4f4f0] border border-black/10 p-4 sm:p-5 rounded-none">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                              {workflowSteps.map((step, idx) => (
+                                <React.Fragment key={idx}>
+                                  <span className="bg-white border border-black/10 px-3 py-1.5 font-mono text-[10px] sm:text-[11px] font-bold tracking-wider text-black shadow-2xs uppercase">
+                                    {step}
+                                  </span>
+                                  {idx < workflowSteps.length - 1 && (
+                                    <span className="text-[#007A93] font-mono text-xs font-bold select-none">
+                                      →
+                                    </span>
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DETAILS Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 border-t border-black/10 pt-6 pb-8">
+                    <div className="sm:col-span-4">
+                      <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-black/40 font-bold block">
+                        DETAILS
+                      </span>
+                    </div>
+                    <div className="sm:col-span-8 space-y-3.5">
+                      {/* Client */}
+                      <div className="flex items-center justify-between border-b border-black/5 pb-2 text-xs sm:text-sm">
+                        <span className="text-black/50 font-sans">Client</span>
+                        <span className="font-sans font-medium text-black">
+                          {selectedItem.brandName || 'Case Study'}
+                        </span>
+                      </div>
+
+                      {/* Year */}
+                      <div className="flex items-center justify-between border-b border-black/5 pb-2 text-xs sm:text-sm">
+                        <span className="text-black/50 font-sans">Year</span>
+                        <span className="font-sans font-medium text-black">
+                          {selectedItem.meta || '2025'}
+                        </span>
+                      </div>
+
+                      {/* Preview -> See It Live / Demo Video / PDF */}
+                      <div className="flex items-center justify-between border-b border-black/5 pb-2 text-xs sm:text-sm">
+                        <span className="text-black/50 font-sans">Preview</span>
+                        {selectedItem.websiteUrl ? (
+                          <a
+                            href={selectedItem.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-sans font-semibold text-black hover:text-[#007A93] transition-colors group cursor-pointer"
+                          >
+                            <span>See It Live</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                          </a>
+                        ) : selectedItem.videoUrl ? (
+                          <a
+                            href={selectedItem.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-sans font-semibold text-purple-700 hover:text-black transition-colors group cursor-pointer"
+                          >
+                            <span>Watch Demo</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                          </a>
+                        ) : selectedItem.pdfUrl ? (
+                          <a
+                            href={selectedItem.pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-sans font-semibold text-amber-700 hover:text-black transition-colors group cursor-pointer"
+                          >
+                            <span>View Document</span>
+                            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                          </a>
+                        ) : (
+                          <span className="text-black/40 italic text-xs">Available on request</span>
+                        )}
+                      </div>
+
+                      {/* Scope */}
+                      <div className="flex items-start justify-between text-xs sm:text-sm">
+                        <span className="text-black/50 font-sans">Scope</span>
+                        <div className="font-sans font-medium text-black text-right space-y-0.5">
+                          <p>{selectedItem.subCategory || service.name}</p>
+                          <p className="text-[11px] text-black/50">Custom Production</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* NEXT PROJECTS Section */}
+                {nextProject && (
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 border-t border-black/10 pt-6 mt-4">
+                    <div className="sm:col-span-4">
+                      <span className="font-mono text-[10px] sm:text-[11px] uppercase tracking-widest text-black/40 font-bold block">
+                        NEXT PROJECTS
+                      </span>
+                    </div>
+                    <div className="sm:col-span-8">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedItem(nextProject);
+                          setActivePreviewUrl(nextProject.generatedVariants?.[0] || nextProject.visualUrl);
+                        }}
+                        className="font-sans text-2xl sm:text-3xl font-bold text-black hover:text-[#007A93] transition-colors text-left flex items-center gap-2 group cursor-pointer"
+                      >
+                        <span className="truncate">{nextProject.brandName || nextProject.title}</span>
+                        <ArrowUpRight className="w-5 h-5 opacity-40 group-hover:opacity-100 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all shrink-0" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Screenshot & Media Stack (NO IFRAME EMBED) */}
+              <div className="lg:col-span-7 space-y-6 sm:space-y-8">
+                {/* Optional embedded direct video player */}
+                {(selectedItem.videoUrl || (isVideoUrl(selectedItem.visualUrl) && selectedItem.visualType === 'video')) && (
+                  <div className="w-full bg-black border border-black/10 shadow-lg overflow-hidden rounded-none aspect-video flex items-center justify-center">
+                    <video
+                      src={selectedItem.videoUrl || selectedItem.visualUrl}
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                {allScreenshots.length > 0 ? (
+                  allScreenshots.map((imgUrl, sIdx) => (
+                    <div
+                      key={sIdx}
+                      className="w-full bg-white border border-black/10 shadow-lg overflow-hidden rounded-none"
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`${selectedItem.title} - Visual ${sIdx + 1}`}
+                        loading="lazy"
+                        className="w-full h-auto object-cover"
+                      />
+                    </div>
+                  ))
+                ) : !selectedItem.videoUrl && !isVideoUrl(selectedItem.visualUrl) && (
+                  <div className="w-full bg-white border border-black/10 shadow-lg overflow-hidden rounded-none aspect-video flex items-center justify-center">
+                    <img src={selectedItem.visualUrl} alt={selectedItem.title} className="w-full h-auto object-cover" />
+                  </div>
+                )}
+
+                {/* Direct action buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  {selectedItem.websiteUrl && (
+                    <a
+                      href={selectedItem.websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-4 px-6 bg-black hover:bg-[#007A93] text-white font-mono text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md group"
+                    >
+                      <Globe className="w-4 h-4 text-[#007A93] group-hover:text-white transition-colors" />
+                      <span>See It Live ({selectedItem.websiteUrl.replace(/^https?:\/\//, '')}) &rarr;</span>
+                    </a>
+                  )}
+                  {selectedItem.pdfUrl && (
+                    <a
+                      href={selectedItem.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download
+                      className="flex-1 py-4 px-6 bg-amber-700 hover:bg-black text-white font-mono text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md group"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Download PDF Spec &rarr;</span>
+                    </a>
+                  )}
+                  {selectedItem.videoUrl && !selectedItem.websiteUrl && (
+                    <a
+                      href={selectedItem.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-4 px-6 bg-purple-700 hover:bg-black text-white font-mono text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md group"
+                    >
+                      <Play className="w-4 h-4" />
+                      <span>Watch Full Demo Video &rarr;</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
         </motion.div>
       </motion.div>
     );
@@ -463,13 +1041,89 @@ export default function ServiceInnerView({
     );
   };
 
-  // --- RENDER: Card layouts per service ---
   const openItem = (item: ServiceSubsection) => {
     setSelectedItem(item);
     setActivePreviewUrl(item.generatedVariants?.[0] || item.visualUrl);
+    setDeviceView('desktop');
+    if ((service.id === 'website-design' || item.popupType === 'website-embed') && item.websiteUrl) {
+      setActiveModalTab('website');
+    } else if (item.popupType === 'video' || item.videoUrl || (item.visualType === 'video' && !item.pdfUrl)) {
+      setActiveModalTab('video');
+    } else if (item.popupType === 'pdf' || (item.pdfUrl && !item.videoUrl && item.visualType === 'pdf')) {
+      setActiveModalTab('pdf');
+    } else if (item.websiteUrl) {
+      setActiveModalTab('website');
+    } else {
+      setActiveModalTab(item.videoUrl ? 'video' : item.pdfUrl ? 'pdf' : 'image');
+    }
   };
 
-  // Square cards: Website Design, Brand Building
+  // Editorial Numbered Cards: Clean layout matching Image 2 (Website Design & Automation)
+  const renderEditorialCards = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+      {filteredSubsections.map((sub, idx) => (
+        <div
+          key={idx}
+          onClick={() => openItem(sub)}
+          className="group cursor-pointer flex flex-col transition-all duration-300"
+        >
+          {/* Top: Screenshot / Video container */}
+          <div className="relative w-full aspect-[4/3] bg-[#eaeaea] overflow-hidden border border-black/5 group-hover:border-black/20 transition-all duration-500 shadow-sm group-hover:shadow-md">
+            {isVideoUrl(sub.visualUrl) ? (
+              <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+            ) : (
+              <img
+                src={getThumbnailUrl(sub.visualUrl, 800, 80)}
+                alt={sub.brandName || sub.title}
+                loading="lazy"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+              />
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+            
+            {/* Badges for media availability */}
+            <div className="absolute top-3 left-3 flex flex-wrap gap-1 z-10">
+              {sub.videoUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                  <Play className="w-2 h-2 text-[#007A93]" /> Video
+                </span>
+              )}
+              {sub.pdfUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                  <FileText className="w-2 h-2 text-amber-400" /> PDF
+                </span>
+              )}
+              {sub.websiteUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                  <Globe className="w-2 h-2 text-emerald-400" /> Live
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom: Number + Category/Year + Title matching Image 2 */}
+          <div className="mt-4 flex items-start">
+            <span className="font-serif text-3xl sm:text-4xl lg:text-5xl text-black font-normal leading-none mr-3 sm:mr-4 shrink-0 select-none tracking-tight">
+              {String(idx + 1).padStart(2, '0')}.
+            </span>
+            <div className="overflow-hidden min-w-0 pt-0.5">
+              <span className="font-mono text-[9px] sm:text-[10px] text-black/50 uppercase tracking-widest block font-medium">
+                {(sub.subCategory || service.name).toUpperCase()} — {sub.meta || '2025'}
+              </span>
+              <h3 className="font-sans text-sm sm:text-base font-bold text-black tracking-tight mt-0.5 truncate group-hover:text-[#007A93] transition-colors">
+                {sub.brandName || sub.title}
+              </h3>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderWebsiteDesignCards = renderEditorialCards;
+
+  // Square cards: Brand Building
   const renderSquareCards = () => (
     <div className="grid grid-cols-2 gap-4 sm:gap-6">
       {filteredSubsections.map((sub, idx) => (
@@ -484,6 +1138,7 @@ export default function ServiceInnerView({
               alt={sub.brandName || sub.title}
               loading="lazy"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
           </div>
@@ -545,35 +1200,75 @@ export default function ServiceInnerView({
     </div>
   );
 
-  // Automation: rectangle layout with popup
+  // Automation: rectangle layout with structured points & popup
   const renderAutomationCards = () => (
     <div className="space-y-8 sm:space-y-16">
       {filteredSubsections.map((sub, idx) => (
         <div
           key={idx}
           onClick={() => openItem(sub)}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 items-center border border-black/5 bg-white hover:border-black/10 transition-all p-5 xs:p-6 sm:p-10 lg:p-12 rounded-none relative overflow-hidden shadow-sm cursor-pointer group"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-10 items-start border border-black/5 bg-white hover:border-black/10 transition-all p-5 xs:p-6 sm:p-10 lg:p-12 rounded-none relative overflow-hidden shadow-sm cursor-pointer group"
         >
           <div className="absolute top-0 right-0 p-4 sm:p-6 font-mono text-[10px] text-black/30 uppercase hidden sm:block">
             NODE // S0{idx + 1}
           </div>
-          <div className="lg:col-span-6 flex flex-col justify-center">
+          <div className="lg:col-span-6 flex flex-col justify-start">
             <span className="font-mono text-[10px] text-black/60 bg-black/5 border border-black/5 w-fit px-3 py-1 rounded-none uppercase mb-6 tracking-wider flex items-center gap-1.5 font-bold">
               <Cpu className="w-3 h-3" /> AUTOMATION
             </span>
             <h3 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-black mb-6 uppercase">{sub.title}</h3>
-            <p className="text-base font-sans text-black/70 leading-relaxed mb-8">{sub.description}</p>
+            
+            <div className="mb-8">
+              <FormattedDescription text={sub.description} />
+            </div>
+
             {sub.meta && (
               <div className="text-[10px] font-mono text-black/50 border-t border-black/5 pt-4">
                 SYSTEM ARTIFACT: <span className="text-black/80 font-bold ml-1">{sub.meta}</span>
               </div>
             )}
           </div>
-          <div className="lg:col-span-6 relative rounded-none overflow-hidden aspect-[4/3] bg-[#eaeaea]">
-            <img src={getThumbnailUrl(sub.visualUrl, 800, 80)} alt={sub.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out" />
+          <div className="lg:col-span-6 relative rounded-none overflow-hidden aspect-[4/3] bg-[#eaeaea] lg:sticky lg:top-24">
+            {isVideoUrl(sub.visualUrl) ? (
+              <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+            ) : (
+              <img
+                src={getThumbnailUrl(sub.visualUrl, 800, 80)}
+                alt={sub.title}
+                loading="lazy"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
+                style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+              />
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+            
+            {/* Badges for available media */}
+            <div className="absolute top-4 left-4 flex flex-wrap gap-1.5 z-10">
+              {sub.videoUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[9px] font-mono font-bold px-2.5 py-1 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                  <Play className="w-2.5 h-2.5 text-[#007A93]" /> Video Demo
+                </span>
+              )}
+              {sub.pdfUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[9px] font-mono font-bold px-2.5 py-1 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                  <FileText className="w-2.5 h-2.5 text-amber-400" /> PDF Document
+                </span>
+              )}
+              {sub.websiteUrl && (
+                <span className="bg-black/80 backdrop-blur text-white text-[9px] font-mono font-bold px-2.5 py-1 uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                  <Globe className="w-2.5 h-2.5 text-emerald-400" /> Live Demo
+                </span>
+              )}
+            </div>
+
             <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur px-4 py-2 rounded-none text-[10px] font-sans font-bold text-black uppercase flex items-center gap-2 shadow-lg">
-              <Play className="w-3 h-3 text-black" /> View Demo
+              {sub.videoUrl || sub.visualType === 'video' || isVideoUrl(sub.visualUrl) ? (
+                <><Play className="w-3 h-3 text-black" /> View Demo</>
+              ) : sub.pdfUrl ? (
+                <><FileText className="w-3 h-3 text-black" /> View Document</>
+              ) : (
+                <><Play className="w-3 h-3 text-black" /> View Details</>
+              )}
             </div>
           </div>
         </div>
@@ -597,7 +1292,13 @@ export default function ServiceInnerView({
             </div>
           ) : (
             <div className="relative w-full h-full">
-              <img src={getThumbnailUrl(sub.visualUrl, 600, 75)} alt={sub.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <img
+                src={getThumbnailUrl(sub.visualUrl, 600, 75)}
+                alt={sub.title}
+                loading="lazy"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                style={{ objectPosition: sub.imagePosition || 'center' }}
+              />
               <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-colors" />
             </div>
           )}
@@ -640,6 +1341,7 @@ export default function ServiceInnerView({
                 alt={brandName}
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                style={{ objectPosition: firstSub.imagePosition || 'center' }}
               />
               <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
             </div>
@@ -671,8 +1373,8 @@ export default function ServiceInnerView({
     }
 
     switch (service.id) {
-      case 'automation': return renderAutomationCards();
-      case 'website-design': return renderSquareCards();
+      case 'automation': return renderEditorialCards();
+      case 'website-design': return renderEditorialCards();
       case 'brand-building': return renderSquareCards();
       case 'e-invitation': return renderImageOnlyCards();
       case 'catalog': return renderImageOnlyCards();
@@ -791,7 +1493,13 @@ export default function ServiceInnerView({
                     {isVideoUrl(coverUrl) ? (
                       <video src={coverUrl} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" muted loop playsInline autoPlay />
                     ) : (
-                      <img src={getThumbnailUrl(coverUrl, 400, 70)} alt={cat} loading="lazy" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                      <img
+                        src={getThumbnailUrl(coverUrl, 400, 70)}
+                        alt={cat}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                        style={{ objectPosition: coverItem?.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+                      />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                     <div className="absolute bottom-5 left-5 right-5 text-left">
@@ -854,15 +1562,18 @@ export default function ServiceInnerView({
             {renderGallery()}
           </div>
         )}
-
-        {/* If shoot service showing category cards only, don't render gallery yet */}
-        {isShootService && selectedCategory === 'All' ? null : !hasFixedCategories && !isShootService && renderGallery()}
       </div>
 
       {/* Portal: Modal */}
       {typeof document !== 'undefined' && createPortal(
         <AnimatePresence>
-          {selectedItem && (isShootService ? renderShootModal() : renderUniversalPopup())}
+          {selectedItem && (
+            (service.id === 'website-design' || service.id === 'automation')
+              ? renderWebsitePopup()
+              : isShootService
+              ? renderShootModal()
+              : renderUniversalPopup()
+          )}
         </AnimatePresence>,
         document.body
       )}

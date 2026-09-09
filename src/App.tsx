@@ -52,6 +52,7 @@ import ProjectDetailView from './components/ProjectDetailView';
 import AdminPanel from './components/AdminPanel';
 import ReviewPage from './components/ReviewPage';
 import AnimatedHero from './components/AnimatedHero';
+import ChapterServices from './components/ChapterServices';
 import { supabase } from './lib/supabase';
 
 function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: number, duration?: number, suffix?: string }) {
@@ -947,76 +948,14 @@ export default function App() {
                 </div>
               </section>
 
-              {/* LANDING SECTION 3: THE BIG INTERACTIVE SERVICES ACCORDION LIST */}
-              <section id="services-index-section" className="w-full pt-0 pb-0 md:pt-24 md:pb-16 relative md:overflow-hidden bg-[#0a0a0a] border-y border-white/5 dark-section">
-                {/* Desktop view header & list (hidden on mobile) */}
-                <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-8 mb-10 md:mb-16 gap-4 md:gap-6">
-                    <div>
-                      <h2 className="font-display text-3xl sm:text-4xl md:text-6xl font-bold tracking-tighter text-white uppercase">
-                        Studio Services <br className="hidden md:block"/>
-                        <span className="font-serif italic font-normal text-white/40 lowercase">curation</span>
-                      </h2>
-                    </div>
-                  </div>
-
-                  {/* Desktop view accordion list */}
-                  <div className="flex flex-col">
-                    {services.map((s, idx) => (
-                      <div
-                        key={s.id}
-                        id={`service-row-${s.id}`}
-                        onMouseEnter={() => setHoveredServiceId(s.id)}
-                        onClick={() => {
-                          navigateTo('service', s.id);
-                          window.scrollTo({ top: 0, behavior: 'instant' });
-                        }}
-                        className={`group relative flex flex-col md:flex-row md:items-end justify-between py-8 md:py-10 border-b border-white/10 cursor-pointer transition-all duration-500`}
-                      >
-                        <div className="flex items-start gap-1 md:gap-4 relative z-10 w-full md:w-auto mb-2 md:mb-0">
-                          <h3 className={`font-sans text-2xl sm:text-4xl lg:text-[4rem] xl:text-[4.5rem] font-bold tracking-tight transition-all duration-500 origin-left whitespace-normal leading-[1] md:leading-[0.85] max-w-[80vw] md:max-w-[800px] ${
-                            hoveredServiceId === s.id ? 'text-white' : 'text-white md:text-[#333333]'
-                          }`}>
-                            {s.name}
-                          </h3>
-                          <span className={`font-mono text-xs sm:text-sm md:text-lg font-bold transition-all duration-500 shrink-0 ${
-                            hoveredServiceId === s.id ? 'text-[#ff4500] -translate-y-2 md:-translate-y-8' : 'text-white/40 md:text-[#333333] -translate-y-2 md:-translate-y-8'
-                          }`}>
-                            ({s.count})
-                          </span>
-                        </div>
-                        
-                        <div className={`hidden md:block text-sm font-sans max-w-xs transition-all duration-500 relative z-10 ${
-                          hoveredServiceId === s.id ? 'opacity-100 text-white/70' : 'opacity-0 text-white/0'
-                        }`}>
-                          {s.tagline}
-                        </div>
-
-                        {/* Floating image on hover - desktop only, clipped to not overflow */}
-                        <div className={`hidden md:block absolute top-1/2 -translate-y-1/2 left-[42%] lg:left-[45%] w-48 lg:w-64 xl:w-72 shadow-2xl rounded-none overflow-hidden aspect-[4/3] pointer-events-none transition-all duration-700 ease-out z-0 border border-white/10 ${
-                            hoveredServiceId === s.id ? 'opacity-100 scale-100 rotate-2' : 'opacity-0 scale-90 -rotate-2'
-                        }`}>
-                            <div className="relative w-full h-full">
-                                <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40" />
-                            </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mobile view 3D circular scroll picker (full-bleed) */}
-                <div className="md:hidden">
-                  <CircularServicesList 
-                    services={services} 
-                    onSelectService={(id) => {
-                      navigateTo('service', id);
-                      window.scrollTo({ top: 0, behavior: 'instant' });
-                    }}
-                  />
-                </div>
-              </section>
+              {/* LANDING SECTION 3: KHANH NGUYEN CHAPTER III HORIZONTAL SERVICES */}
+              <ChapterServices
+                services={services}
+                onSelectService={(id) => {
+                  navigateTo('service', id);
+                  window.scrollTo({ top: 0, behavior: 'instant' });
+                }}
+              />
 
               {/* LANDING SECTION 4: PERFORMANCE STATS */}
               <section id="performance-stats-section" className="bg-white border-y border-black/10 py-12 sm:py-16 relative z-10 w-full overflow-hidden">

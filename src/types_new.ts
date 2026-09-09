@@ -13,8 +13,10 @@ export interface ServiceSubsection {
   instaLink?: string;
   websiteUrl?: string;
   pdfUrl?: string;
+  videoUrl?: string;
   popupType?: 'image' | 'video' | 'pdf' | 'website-embed' | 'website-link' | 'text';
   subSubCategory?: string;
+  imagePosition?: string;
 }
 
 export interface ServiceDetail {
@@ -95,4 +97,3 @@ export const SERVICES_DATA: ServiceDetail[] = [];
 export const CLIENTS_DATA: ClientProfile[] = [];
 export const TESTIMONIALS_DATA: Testimonial[] = [];
 export const FEATURED_PROJECTS: PortfolioProject[] = [];
-

@@ -24,7 +24,8 @@ import {
   Globe,
   ChevronDown,
   ChevronRight,
-  ChevronUp
+  ChevronUp,
+  Crop
 } from 'lucide-react';
 import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial, SiteSettings } from '../types';
 import { supabase } from '../lib/supabase';
@@ -34,6 +35,8 @@ import { supabase } from '../lib/supabase';
 const ADMIN_CATEGORIES: Record<string, string[]> = {
   'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
   'ai-video-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
+  'automation': ['Email Automation', 'WhatsApp Automation', 'Internal Workflow', 'Chatbots', 'Custom Tools', 'General'],
+  'website-design': ['E-Commerce', 'Corporate', 'Landing Pages', 'Portfolio', 'Web Applications', 'General'],
   'e-invitation': ['Still Cards', 'Motion Cards', 'Invitation Website'],
   'catalog': ['PDF', 'Website', 'Product Catalog', 'Lookbook'],
   'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Reels Cover', 'Others'],
@@ -48,9 +51,9 @@ const POPUP_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
     { value: 'text', label: 'Text Content' },
   ],
   'website-design': [
+    { value: 'website-embed', label: 'Embedded Live Website (Interactive Demo)' },
     { value: 'image', label: 'Image / Screenshot' },
     { value: 'video', label: 'Video Walkthrough' },
-    { value: 'website-embed', label: 'Embedded Website (iframe)' },
     { value: 'website-link', label: 'Website Link (opens new tab)' },
   ],
   'brand-building': [
@@ -75,6 +78,11 @@ const POPUP_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
   'insta-grid-stories': [
     { value: 'image', label: 'Image Gallery' },
   ],
+};
+
+const isVideoUrl = (url?: string) => {
+  if (!url) return false;
+  return /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url) || url.includes('/video/');
 };
 
 interface AdminPanelProps {
@@ -126,26 +134,41 @@ export default function AdminPanel({
 
   // Services Edit State
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCount, setEditCount] = useState('');
   const [editTagline, setEditTagline] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editFeatures, setEditFeatures] = useState<string[]>([]);
   const [newFeatureText, setNewFeatureText] = useState('');
 
+  // Add New Service State
+  const [isAddingService, setIsAddingService] = useState(false);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServiceId, setNewServiceId] = useState('');
+  const [newServiceCount, setNewServiceCount] = useState('');
+  const [newServiceTagline, setNewServiceTagline] = useState('');
+  const [newServiceImage, setNewServiceImage] = useState('');
+  const [newServiceFeatures, setNewServiceFeatures] = useState<string[]>([]);
+  const [newServiceFeatureInput, setNewServiceFeatureInput] = useState('');
+
   // Subsections Add State
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState(services[0]?.id || '');
+  const [newWorkflowSteps, setNewWorkflowSteps] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState('Clothing Shoot');
   const [newCustomCategory, setNewCustomCategory] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newVisualType, setNewVisualType] = useState<'image' | 'video' | 'automation' | 'pdf' | 'website'>('image');
   const [newVisualUrl, setNewVisualUrl] = useState('');
+  const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newMeta, setNewMeta] = useState('');
   const [newOriginalUrls, setNewOriginalUrls] = useState('');
   const [newGeneratedVariants, setNewGeneratedVariants] = useState('');
   const [newIsComparisonMode, setNewIsComparisonMode] = useState(false);
 
   // Drag & Drop and Collapsible States for Subsections
+  const [collapsedServices, setCollapsedServices] = useState<Record<string, boolean>>({});
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [manageWorksOpen, setManageWorksOpen] = useState(false);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
@@ -163,6 +186,7 @@ export default function AdminPanel({
   const [newPdfUrl, setNewPdfUrl] = useState('');
   const [newPopupType, setNewPopupType] = useState('image');
   const [newSubSubCategory, setNewSubSubCategory] = useState('');
+  const [newImagePosition, setNewImagePosition] = useState<string>('center');
 
   // Brands/Clients State
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
@@ -202,7 +226,7 @@ export default function AdminPanel({
   }, [services]);
 
   // Handle file uploads
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'visual' | 'original' | 'variant' | 'brand-logo' | 'brand-work' | 'pdf') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'visual' | 'original' | 'variant' | 'brand-logo' | 'brand-work' | 'pdf' | 'video' | 'service-cover' | 'new-service-cover') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -235,6 +259,9 @@ export default function AdminPanel({
             if (files[i].type.startsWith('video/')) setNewVisualType('video');
             else setNewVisualType('image');
           }
+          if (target === 'video' && i === 0) {
+            setNewPopupType('video');
+          }
           if (target === 'brand-work' && i === 0) {
             if (files[i].type.startsWith('video/')) setNewWorkType('video');
             else setNewWorkType('image');
@@ -246,6 +273,8 @@ export default function AdminPanel({
 
       if (target === 'visual') {
         setNewVisualUrl(uploadedUrls[0]);
+      } else if (target === 'video') {
+        setNewVideoUrl(uploadedUrls[0]);
       } else if (target === 'original') {
         setNewOriginalUrls(prev => prev ? prev + ', ' + uploadedUrls.join(', ') : uploadedUrls.join(', '));
       } else if (target === 'variant') {
@@ -256,6 +285,10 @@ export default function AdminPanel({
         setNewWorkUrl(uploadedUrls[0]);
       } else if (target === 'pdf') {
         setNewPdfUrl(uploadedUrls[0]);
+      } else if (target === 'service-cover') {
+        setEditImage(uploadedUrls[0]);
+      } else if (target === 'new-service-cover') {
+        setNewServiceImage(uploadedUrls[0]);
       }
 
       setUploadSuccess(true);
@@ -268,9 +301,12 @@ export default function AdminPanel({
 
   const handleEditServiceClick = (service: ServiceDetail) => {
     setEditingServiceId(service.id);
+    setEditName(service.name);
+    setEditCount(service.count);
     setEditTagline(service.tagline);
     setEditImage(service.image);
     setEditFeatures([...service.features]);
+    setIsAddingService(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -283,6 +319,8 @@ export default function AdminPanel({
       if (s.id === editingServiceId) {
         return {
           ...s,
+          name: editName.trim() || s.name,
+          count: editCount.trim() || s.count,
           tagline: editTagline,
           image: editImage,
           features: editFeatures
@@ -302,6 +340,70 @@ export default function AdminPanel({
     }
   };
 
+  const handleCreateService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = newServiceName.trim();
+    const slug = (newServiceId.trim() || trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+    if (!trimmedName || !slug) {
+      triggerToast('Please provide a valid service name.');
+      return;
+    }
+    if (services.some(s => s.id.toLowerCase() === slug.toLowerCase())) {
+      triggerToast(`A service with ID "${slug}" already exists.`);
+      return;
+    }
+
+    setIsSaving(true);
+    const newServiceObj: ServiceDetail = {
+      id: slug,
+      name: trimmedName,
+      count: newServiceCount.trim() || String(services.length + 1).padStart(2, '0'),
+      tagline: newServiceTagline.trim(),
+      image: newServiceImage.trim() || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=1200',
+      features: newServiceFeatures,
+      subsections: []
+    };
+
+    try {
+      const updated = [...services, newServiceObj];
+      await updateServices(updated);
+      setIsAddingService(false);
+      setNewServiceName('');
+      setNewServiceId('');
+      setNewServiceCount('');
+      setNewServiceTagline('');
+      setNewServiceImage('');
+      setNewServiceFeatures([]);
+      triggerToast('New service created successfully!');
+    } catch (err) {
+      triggerToast('Failed to create new service.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
+    const target = services.find(s => s.id === serviceId);
+    if (!target) return;
+    if (!window.confirm(`Are you sure you want to delete the service "${target.name}"? All its work items will also be removed.`)) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updated = services.filter(s => s.id !== serviceId);
+      await updateServices(updated);
+      if (editingServiceId === serviceId) setEditingServiceId(null);
+      if (selectedServiceId === serviceId && updated.length > 0) {
+        setSelectedServiceId(updated[0].id);
+      }
+      triggerToast(`Service "${target.name}" deleted.`);
+    } catch (err) {
+      triggerToast('Failed to delete service.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleAddFeature = () => {
     if (newFeatureText.trim() && !editFeatures.includes(newFeatureText.trim())) {
       setEditFeatures([...editFeatures, newFeatureText.trim()]);
@@ -311,6 +413,17 @@ export default function AdminPanel({
 
   const handleRemoveFeature = (feature: string) => {
     setEditFeatures(editFeatures.filter(f => f !== feature));
+  };
+
+  const handleAddNewServiceFeature = () => {
+    if (newServiceFeatureInput.trim() && !newServiceFeatures.includes(newServiceFeatureInput.trim())) {
+      setNewServiceFeatures([...newServiceFeatures, newServiceFeatureInput.trim()]);
+      setNewServiceFeatureInput('');
+    }
+  };
+
+  const handleRemoveNewServiceFeature = (feature: string) => {
+    setNewServiceFeatures(newServiceFeatures.filter(f => f !== feature));
   };
 
   // Which services hide title/description (image-only cards)
@@ -328,8 +441,10 @@ export default function AdminPanel({
   // #4 — Expanded showBrandName to include social media, catalog, automation services
   const showBrandName = ['website-design', 'brand-building', 'ai-photo-shoot', 'ai-video-shoot', 'insta-grid-stories', 'catalog', 'automation'].includes(selectedServiceId);
   const showInstaLink = ['brand-building', 'insta-grid-stories'].includes(selectedServiceId);
-  const showWebsiteUrl = ['website-design', 'brand-building', 'e-invitation', 'catalog'].includes(selectedServiceId) || newVisualType === 'website' || newPopupType === 'website-link' || newPopupType === 'website-embed' || newVisualType === 'automation';
-  const showPdfUrl = ['brand-building', 'e-invitation', 'catalog'].includes(selectedServiceId) || newVisualType === 'pdf' || newPopupType === 'pdf';
+  const showWebsiteUrl = ['website-design', 'brand-building', 'e-invitation', 'catalog', 'automation'].includes(selectedServiceId) || newVisualType === 'website' || newPopupType === 'website-link' || newPopupType === 'website-embed' || newVisualType === 'automation';
+  const showPdfUrl = ['brand-building', 'e-invitation', 'catalog', 'automation'].includes(selectedServiceId) || newVisualType === 'pdf' || newPopupType === 'pdf';
+  const showVideoUrl = ['automation', 'website-design', 'catalog', 'e-invitation', 'brand-building', 'ai-video-shoot'].includes(selectedServiceId) || newVisualType === 'video' || newPopupType === 'video';
+  const showGalleryImages = isShootService || ['automation', 'website-design', 'brand-building', 'catalog'].includes(selectedServiceId);
   const showPopupType = !!POPUP_TYPE_OPTIONS[selectedServiceId];
   const showSubSubCategory = selectedServiceId === 'e-invitation';
   const adminCats = ADMIN_CATEGORIES[selectedServiceId];
@@ -347,6 +462,7 @@ export default function AdminPanel({
     setNewDescription(item.description || '');
     setNewVisualType(item.visualType || 'image');
     setNewVisualUrl(item.visualUrl || '');
+    setNewVideoUrl(item.videoUrl || '');
     setNewMeta(item.meta || '');
     setNewOriginalUrls(item.originalUrls ? item.originalUrls.join(', ') : '');
     setNewGeneratedVariants(item.generatedVariants ? item.generatedVariants.join(', ') : '');
@@ -357,6 +473,8 @@ export default function AdminPanel({
     setNewPopupType(item.popupType || 'image');
     setNewSubSubCategory(item.subSubCategory || '');
     setNewIsComparisonMode(item.isComparisonMode || false);
+    setNewImagePosition(item.imagePosition || (serviceId === 'website-design' ? 'top' : 'center'));
+    setNewWorkflowSteps(item.workflowSteps ? item.workflowSteps.join(' -> ') : '');
 
     const standardCats = ADMIN_CATEGORIES[serviceId] || ['General'];
     if (item.subCategory && !standardCats.includes(item.subCategory) && item.subCategory !== 'General') {
@@ -371,11 +489,13 @@ export default function AdminPanel({
 
   const handleCancelEdit = () => {
     setEditingItemId(null);
-    setNewTitle(''); setNewDescription(''); setNewVisualUrl(''); setNewMeta('');
+    setNewTitle(''); setNewDescription(''); setNewVisualUrl(''); setNewVideoUrl(''); setNewMeta('');
     setNewCustomCategory(''); setNewOriginalUrls(''); setNewGeneratedVariants('');
     setNewBrandName(''); setNewInstaLink(''); setNewWebsiteUrl(''); setNewPdfUrl('');
     setNewPopupType('image'); setNewSubSubCategory('');
     setNewIsComparisonMode(false);
+    setNewImagePosition(selectedServiceId === 'website-design' ? 'top' : 'center');
+    setNewWorkflowSteps('');
   };
 
   const handleAddSubsection = async (e: React.FormEvent) => {
@@ -391,6 +511,9 @@ export default function AdminPanel({
 
     const originalUrlsArray = newOriginalUrls.split(',').map(s => s.trim()).filter(Boolean);
     const generatedVariantsArray = newGeneratedVariants.split(',').map(s => s.trim()).filter(Boolean);
+    const parsedWorkflowSteps = newWorkflowSteps.trim()
+      ? newWorkflowSteps.split(/->|→|\n/).map(s => s.trim().toUpperCase()).filter(Boolean)
+      : undefined;
 
     const newSection: ServiceSubsection = {
       id: editingItemId || "work-" + Date.now().toString(36),
@@ -406,9 +529,12 @@ export default function AdminPanel({
       instaLink: newInstaLink.trim() || undefined,
       websiteUrl: newWebsiteUrl.trim() || undefined,
       pdfUrl: newPdfUrl.trim() || undefined,
+      videoUrl: newVideoUrl.trim() || undefined,
       popupType: (newPopupType as ServiceSubsection['popupType']) || undefined,
       subSubCategory: newSubSubCategory.trim() || undefined,
       isComparisonMode: newIsComparisonMode,
+      imagePosition: newImagePosition || (selectedServiceId === 'website-design' ? 'top' : 'center'),
+      workflowSteps: parsedWorkflowSteps,
     };
 
     const updatedServices = services.map(s => {
@@ -1180,24 +1306,240 @@ export default function AdminPanel({
             {/* TAB 2: SERVICES EDITOR */}
             {activeTab === 'services' && (
               <div className="space-y-8 animate-fadeIn">
-                <div className="border-b border-gray-300 pb-6">
-                  <h2 className="font-display text-2xl font-bold uppercase tracking-tight">Services Editor</h2>
-                  <p className="text-gray-500 text-xs font-sans mt-1">Modify tagline descriptions, features list, and hero images for service pages.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-300 pb-6 gap-4">
+                  <div>
+                    <h2 className="font-display text-2xl font-bold uppercase tracking-tight">Services Editor</h2>
+                    <p className="text-gray-500 text-xs font-sans mt-1">Create new service offerings, modify taglines, features list, and hero images.</p>
+                  </div>
+                  {!isAddingService && !editingServiceId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingService(true);
+                        setEditingServiceId(null);
+                        setNewServiceName('');
+                        setNewServiceId('');
+                        setNewServiceCount(String(services.length + 1).padStart(2, '0'));
+                        setNewServiceTagline('');
+                        setNewServiceImage('');
+                        setNewServiceFeatures([]);
+                        setNewServiceFeatureInput('');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="bg-gray-900 text-white hover:bg-gray-800 px-5 py-3 rounded-none font-mono text-xs font-bold uppercase tracking-wider cursor-pointer transition-all flex items-center gap-2 shadow-sm shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add New Service</span>
+                    </button>
+                  )}
                 </div>
 
-                {editingServiceId ? (
-                  <form onSubmit={handleSaveService} className="space-y-6">
+                {/* CREATE NEW SERVICE FORM */}
+                {isAddingService ? (
+                  <form onSubmit={handleCreateService} className="space-y-6 bg-gray-50 border border-gray-300 p-6 md:p-8 rounded-none">
                     <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-                      <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-[#007A93]">
-                        Editing {services.find(s => s.id === editingServiceId)?.name}
-                      </h3>
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#007A93] font-bold block">New Offering</span>
+                        <h3 className="text-base font-display font-bold uppercase tracking-tight text-gray-900">
+                          Create Brand New Service
+                        </h3>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setEditingServiceId(null)}
-                        className="text-gray-500 hover:text-gray-900 p-2 rounded-none hover:bg-gray-100 cursor-pointer"
+                        onClick={() => setIsAddingService(false)}
+                        className="text-gray-500 hover:text-gray-900 p-2 rounded-none hover:bg-gray-200 cursor-pointer transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      <div className="md:col-span-8">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Name *</label>
+                        <input
+                          type="text"
+                          value={newServiceName}
+                          onChange={(e) => {
+                            setNewServiceName(e.target.value);
+                            if (!newServiceId || newServiceId === newServiceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')) {
+                              setNewServiceId(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+                            }
+                          }}
+                          placeholder="e.g. Motion Graphics & VFX"
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-sans transition-all"
+                        />
+                      </div>
+
+                      <div className="md:col-span-4">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Counter Number *</label>
+                        <input
+                          type="text"
+                          value={newServiceCount}
+                          onChange={(e) => setNewServiceCount(e.target.value)}
+                          placeholder="09"
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service ID (URL Slug) *</label>
+                      <input
+                        type="text"
+                        value={newServiceId}
+                        onChange={(e) => setNewServiceId(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                        placeholder="e.g. motion-graphics-vfx"
+                        required
+                        className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                      />
+                      <span className="text-[10px] text-gray-400 font-mono mt-1 block">Unique slug identifier used in navigation and routes.</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Tagline Description *</label>
+                      <textarea
+                        value={newServiceTagline}
+                        onChange={(e) => setNewServiceTagline(e.target.value)}
+                        required
+                        rows={3}
+                        placeholder="Concise, high-impact description of what this service delivers..."
+                        className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all resize-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                      <div className="md:col-span-4">
+                        <label className="bg-white hover:bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[95px]">
+                          {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Upload Cover</span>
+                          <span className="text-[9px] text-gray-400 mt-0.5">Click to upload file</span>
+                          <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'new-service-cover')} disabled={uploadingFile} className="hidden" />
+                        </label>
+                      </div>
+                      <div className="md:col-span-8">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Cover Image URL *</label>
+                        <input
+                          type="text"
+                          value={newServiceImage}
+                          onChange={(e) => setNewServiceImage(e.target.value)}
+                          placeholder="https://images.unsplash.com/..."
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {newServiceImage && (
+                      <div className="w-32 h-20 rounded-none overflow-hidden border border-gray-300 bg-gray-200">
+                        <img src={newServiceImage} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Features</label>
+                      <div className="flex flex-wrap gap-2 mb-4 bg-white border border-gray-200 p-4 rounded-none min-h-[50px]">
+                        {newServiceFeatures.length === 0 ? (
+                          <span className="text-gray-400 text-xs font-sans">No features added yet. Add key bullet points below.</span>
+                        ) : (
+                          newServiceFeatures.map((feat, idx) => (
+                            <span key={idx} className="bg-gray-100 border border-gray-200 rounded-none px-3 py-1 text-xs text-gray-800 font-sans flex items-center gap-1.5">
+                              {feat}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveNewServiceFeature(feat)}
+                                className="text-gray-400 hover:text-red-500 p-0.5 rounded-none cursor-pointer transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newServiceFeatureInput}
+                          onChange={(e) => setNewServiceFeatureInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddNewServiceFeature();
+                            }
+                          }}
+                          placeholder="Add new feature bullet (e.g. 4K High Resolution)..."
+                          className="flex-1 bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddNewServiceFeature}
+                          className="bg-gray-900 text-white hover:bg-gray-800 px-5 rounded-none font-mono text-xs font-bold uppercase tracking-widest cursor-pointer transition-all flex items-center gap-1"
+                        >
+                          <Plus className="w-4 h-4" /> Add
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingService(false)}
+                        className="px-6 py-3.5 text-xs font-mono font-bold uppercase tracking-wider text-gray-500 hover:text-gray-900 rounded-none bg-transparent transition-all cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="px-7 py-3.5 text-xs font-mono font-bold uppercase tracking-wider bg-gray-900 text-white hover:bg-gray-800 rounded-none transition-all cursor-pointer shadow-md flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        <span>Create Service</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : editingServiceId ? (
+                  /* EDIT SERVICE FORM */
+                  <form onSubmit={handleSaveService} className="space-y-6 bg-gray-50 border border-gray-300 p-6 md:p-8 rounded-none">
+                    <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[#007A93] font-bold block">Editing Service</span>
+                        <h3 className="text-base font-display font-bold uppercase tracking-tight text-gray-900">
+                          {editName || services.find(s => s.id === editingServiceId)?.name}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingServiceId(null)}
+                        className="text-gray-500 hover:text-gray-900 p-2 rounded-none hover:bg-gray-200 cursor-pointer transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      <div className="md:col-span-8">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Display Name *</label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-sans transition-all"
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Counter Number *</label>
+                        <input
+                          type="text"
+                          value={editCount}
+                          onChange={(e) => setEditCount(e.target.value)}
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -1207,24 +1549,40 @@ export default function AdminPanel({
                         onChange={(e) => setEditTagline(e.target.value)}
                         required
                         rows={3}
-                        className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all resize-none"
+                        className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all resize-none"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Cover Image URL *</label>
-                      <input
-                        type="text"
-                        value={editImage}
-                        onChange={(e) => setEditImage(e.target.value)}
-                        required
-                        className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                      <div className="md:col-span-4">
+                        <label className="bg-white hover:bg-gray-100 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[95px]">
+                          {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Replace Cover</span>
+                          <span className="text-[9px] text-gray-400 mt-0.5">Click to upload file</span>
+                          <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'service-cover')} disabled={uploadingFile} className="hidden" />
+                        </label>
+                      </div>
+                      <div className="md:col-span-8">
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Cover Image URL *</label>
+                        <input
+                          type="text"
+                          value={editImage}
+                          onChange={(e) => setEditImage(e.target.value)}
+                          required
+                          className="w-full bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                        />
+                      </div>
                     </div>
+
+                    {editImage && (
+                      <div className="w-32 h-20 rounded-none overflow-hidden border border-gray-300 bg-gray-200">
+                        <img src={editImage} alt="Cover Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">Service Features</label>
-                      <div className="flex flex-wrap gap-2 mb-4 bg-gray-50 border border-gray-200 p-4 rounded-none">
+                      <div className="flex flex-wrap gap-2 mb-4 bg-white border border-gray-200 p-4 rounded-none min-h-[50px]">
                         {editFeatures.length === 0 ? (
                           <span className="text-gray-400 text-xs font-sans">No features listed.</span>
                         ) : (
@@ -1234,7 +1592,7 @@ export default function AdminPanel({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveFeature(feat)}
-                                className="text-gray-400 hover:text-red-400 p-0.5 rounded-none cursor-pointer transition-colors"
+                                className="text-gray-400 hover:text-red-500 p-0.5 rounded-none cursor-pointer transition-colors"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -1248,8 +1606,14 @@ export default function AdminPanel({
                           type="text"
                           value={newFeatureText}
                           onChange={(e) => setNewFeatureText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddFeature();
+                            }
+                          }}
                           placeholder="Add new feature..."
-                          className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all"
+                          className="flex-1 bg-white border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
                         />
                         <button
                           type="button"
@@ -1272,31 +1636,47 @@ export default function AdminPanel({
                       <button
                         type="submit"
                         disabled={isSaving}
-                        className="px-6 py-3.5 text-xs font-mono font-bold uppercase tracking-wider bg-gray-900 text-white hover:bg-gray-800 rounded-none transition-all cursor-pointer shadow-md flex items-center gap-2 disabled:opacity-50"
+                        className="px-7 py-3.5 text-xs font-mono font-bold uppercase tracking-wider bg-gray-900 text-white hover:bg-gray-800 rounded-none transition-all cursor-pointer shadow-md flex items-center gap-2 disabled:opacity-50"
                       >
-                        {isSaving && <Loader className="w-4 h-4 animate-spin" />}
+                        {isSaving ? <Loader className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                         <span>Save Changes</span>
                       </button>
                     </div>
                   </form>
                 ) : (
+                  /* SERVICES LIST */
                   <div className="space-y-4">
                     {services.map((s) => (
-                      <div key={s.id} className="bg-gray-50 border border-gray-200 p-5 rounded-none flex items-center justify-between gap-6">
-                        <div className="flex items-center gap-4">
-                          <img src={s.image} alt={s.name} className="w-16 h-12 object-cover rounded-none bg-gray-200" />
-                          <div>
-                            <h3 className="font-display text-base font-bold uppercase text-gray-900">{s.name}</h3>
-                            <span className="font-mono text-[10px] text-[#007A93] tracking-widest uppercase">0{s.count} // {s.subsections?.length || 0} items</span>
+                      <div key={s.id} className="bg-gray-50 border border-gray-200 p-5 rounded-none flex items-center justify-between gap-6 hover:border-gray-400 transition-colors">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <img src={s.image} alt={s.name} className="w-16 h-12 object-cover rounded-none bg-gray-200 shrink-0" />
+                          <div className="min-w-0">
+                            <h3 className="font-display text-base font-bold uppercase text-gray-900 truncate">{s.name}</h3>
+                            <span className="font-mono text-[10px] text-[#007A93] tracking-widest uppercase block">
+                              {s.count} // {s.subsections?.length || 0} items // ID: {s.id}
+                            </span>
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleEditServiceClick(s)}
-                          className="p-3 bg-gray-100 hover:bg-gray-200 rounded-none text-gray-700 hover:text-gray-900 transition-all cursor-pointer flex items-center gap-1 text-xs font-mono uppercase tracking-wider border border-gray-200"
-                        >
-                          <Edit className="w-3.5 h-3.5" /> Edit
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleEditServiceClick(s)}
+                            className="p-2.5 sm:px-3 sm:py-2 bg-gray-100 hover:bg-gray-200 rounded-none text-gray-700 hover:text-gray-900 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider border border-gray-200"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteService(s.id)}
+                            className="p-2.5 sm:px-3 sm:py-2 bg-red-50 hover:bg-red-100 rounded-none text-red-600 hover:text-red-800 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider border border-red-200"
+                            title="Delete service"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Delete</span>
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1319,7 +1699,16 @@ export default function AdminPanel({
                     <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Target Service Page *</label>
                     <select
                       value={selectedServiceId}
-                      onChange={(e) => setSelectedServiceId(e.target.value)}
+                      onChange={(e) => {
+                        const newSvcId = e.target.value;
+                        setSelectedServiceId(newSvcId);
+                        const availableCats = ADMIN_CATEGORIES[newSvcId] || ['General'];
+                        setNewCategory(availableCats[0] || 'General');
+                        setNewCustomCategory('');
+                        if (newSvcId === 'website-design' && (!newImagePosition || newImagePosition === 'center')) {
+                          setNewImagePosition('top');
+                        }
+                      }}
                       className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3.5 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer"
                     >
                       {services.map(s => (
@@ -1342,16 +1731,27 @@ export default function AdminPanel({
 
                     {/* Category selector */}
                     <div>
-                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Category{adminCats ? ' *' : ''}</label>
+                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Category *</label>
                       <div className="flex flex-col gap-2">
-                        <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} disabled={!adminCats && !isShootService} className={`w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all ${!adminCats && !isShootService ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                          {(adminCats || getExistingCategories()).map((cat, idx) => (
+                        <select 
+                          value={newCategory} 
+                          onChange={(e) => setNewCategory(e.target.value)} 
+                          className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer"
+                        >
+                          {Array.from(new Set([...(ADMIN_CATEGORIES[selectedServiceId] || []), ...getExistingCategories()])).map((cat, idx) => (
                             <option key={idx} value={cat}>{cat}</option>
                           ))}
                           <option value="Custom">+ Create New Category...</option>
                         </select>
                         {newCategory === 'Custom' && (
-                          <input type="text" value={newCustomCategory} onChange={(e) => setNewCustomCategory(e.target.value)} required placeholder="New category name" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
+                          <input 
+                            type="text" 
+                            value={newCustomCategory} 
+                            onChange={(e) => setNewCustomCategory(e.target.value)} 
+                            required 
+                            placeholder="New category name" 
+                            className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" 
+                          />
                         )}
                       </div>
                     </div>
@@ -1457,64 +1857,258 @@ export default function AdminPanel({
 
                   {/* File Upload / Visual URL */}
                   <div className="bg-gray-50 border border-gray-200 p-6 rounded-none space-y-4">
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-                      <span className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest">Media Storage</span>
-                      <span className="text-[10px] font-sans text-gray-500">Upload cover image or paste URL</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200 pb-3 gap-1">
+                      <div>
+                        <span className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest block">Media & Artifact Storage</span>
+                        <span className="text-[11px] font-sans text-gray-500">Upload cover image, demo video, PDF documentation, and demo link. You can provide any or all.</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-2 py-0.5 border border-gray-200 uppercase w-fit font-semibold">
+                        Image • Video • PDF • Web
+                      </span>
                     </div>
+
                     <div className="space-y-6">
-                      {/* #13 — Drag and drop upload for cover media */}
+                      {/* 1. Cover Image / Visual Media */}
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                         <div className="md:col-span-4">
                           <label
-                            className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
+                            className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[85px]"
                             onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
                             onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
                             onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'visual'); }}
                           >
-                            {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
-                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Cover Media</span>
-                            <span className="text-[9px] text-gray-400 mt-1">Click or drag & drop</span>
+                            {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <ImageIcon className="w-5 h-5 text-gray-600 mb-1" />}
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Cover Image / Media</span>
+                            <span className="text-[9px] text-gray-400 mt-1">Upload JPG, PNG, WEBP, MP4</span>
                             <input type="file" accept="image/*,video/*" multiple onChange={(e) => handleFileUpload(e, 'visual')} disabled={uploadingFile} className="hidden" />
                           </label>
                         </div>
                         <div className="md:col-span-8">
-                          <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">Visual Cover URL</label>
-                          <input type="text" value={newVisualUrl} onChange={(e) => setNewVisualUrl(e.target.value)} placeholder="Main cover media URL" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                          <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">Visual Cover URL *</label>
+                          <input type="text" value={newVisualUrl} onChange={(e) => setNewVisualUrl(e.target.value)} placeholder="Main cover image or video URL" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                          <span className="text-[9px] font-sans text-gray-400 mt-1 block">Primary thumbnail displayed on the service page cards.</span>
                         </div>
                       </div>
 
+                      {/* Crop Alignment / Focus Point Control */}
+                      <div className="bg-gray-100/70 border border-gray-200 p-3.5 rounded-none">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
+                          <div>
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-900 flex items-center gap-1.5">
+                              <Crop className="w-3.5 h-3.5 text-[#007A93]" /> Thumbnail Crop Focus & Alignment
+                            </span>
+                            <span className="text-[10px] text-gray-500 block">
+                              Select which part of the image to display in cropped cards (select "Top" for websites so the header/hero is visible).
+                            </span>
+                          </div>
+                          {newVisualUrl && !isVideoUrl(newVisualUrl) && (
+                            <span className="text-[8px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 uppercase tracking-wider">
+                              Interactive Preview
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-4">
+                          {/* 3x3 Interactive Direction Grid */}
+                          <div className="grid grid-cols-3 gap-1 w-24 h-24 bg-white p-1 border border-gray-300 shrink-0 shadow-sm" title="Click a position to anchor crop">
+                            {[
+                              { id: 'top left', label: 'TL', title: 'Top Left' },
+                              { id: 'top', label: 'TOP', title: 'Top (Header / Hero)' },
+                              { id: 'top right', label: 'TR', title: 'Top Right' },
+                              { id: 'left', label: 'LFT', title: 'Left' },
+                              { id: 'center', label: 'CTR', title: 'Center (Default)' },
+                              { id: 'right', label: 'RGT', title: 'Right' },
+                              { id: 'bottom left', label: 'BL', title: 'Bottom Left' },
+                              { id: 'bottom', label: 'BTM', title: 'Bottom (Footer)' },
+                              { id: 'bottom right', label: 'BR', title: 'Bottom Right' },
+                            ].map(pos => {
+                              const activePos = newImagePosition || (selectedServiceId === 'website-design' ? 'top' : 'center');
+                              const isSelected = activePos === pos.id;
+                              return (
+                                <button
+                                  key={pos.id}
+                                  type="button"
+                                  title={pos.title}
+                                  onClick={() => setNewImagePosition(pos.id)}
+                                  className={`text-[8px] font-mono font-bold transition-all flex items-center justify-center border ${
+                                    isSelected
+                                      ? 'bg-[#007A93] text-white border-[#007A93] shadow-inner'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-200 hover:border-gray-400'
+                                  }`}
+                                >
+                                  {pos.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Quick selection preset pills */}
+                          <div className="flex-1 space-y-2">
+                            <div className="flex flex-wrap gap-1.5">
+                              {[
+                                { id: 'top', label: 'Top (Header / Hero)' },
+                                { id: 'center', label: 'Center (Balanced)' },
+                                { id: 'bottom', label: 'Bottom (Footer)' },
+                                { id: 'left', label: 'Left' },
+                                { id: 'right', label: 'Right' },
+                              ].map(pill => {
+                                const activePos = newImagePosition || (selectedServiceId === 'website-design' ? 'top' : 'center');
+                                const isSelected = activePos === pill.id;
+                                return (
+                                  <button
+                                    key={pill.id}
+                                    type="button"
+                                    onClick={() => setNewImagePosition(pill.id)}
+                                    className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider border transition-all ${
+                                      isSelected
+                                        ? 'bg-black text-white border-black font-bold shadow-sm'
+                                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500 hover:text-black'
+                                    }`}
+                                  >
+                                    {pill.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[10px] text-gray-500 font-sans">
+                              Active crop alignment: <span className="font-mono font-bold text-black uppercase bg-gray-200 px-1.5 py-0.5 border border-gray-300 ml-1">{newImagePosition || (selectedServiceId === 'website-design' ? 'top' : 'center')}</span>
+                              {selectedServiceId === 'website-design' && (
+                                <span className="text-[#007A93] ml-2 font-medium">✨ 'Top' is recommended for website screenshots</span>
+                              )}
+                            </p>
+                          </div>
+
+                          {/* Live preview square thumbnail */}
+                          {newVisualUrl && !isVideoUrl(newVisualUrl) && (
+                            <div className="flex flex-col items-center shrink-0">
+                              <span className="text-[8px] font-mono text-gray-500 uppercase tracking-wider mb-1 font-bold">Card Preview</span>
+                              <div className="w-20 h-20 border-2 border-black overflow-hidden bg-gray-200 relative shadow-sm">
+                                <img
+                                  src={newVisualUrl}
+                                  alt="Crop Preview"
+                                  className="w-full h-full object-cover transition-all duration-300"
+                                  style={{ objectPosition: newImagePosition || (selectedServiceId === 'website-design' ? 'top' : 'center') }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 2. Demo Video */}
+                      {showVideoUrl && (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
+                          <div className="md:col-span-4">
+                            <label
+                              className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-purple-600 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[85px]"
+                              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-purple-600', 'bg-purple-50'); }}
+                              onDragLeave={e => { e.currentTarget.classList.remove('border-purple-600', 'bg-purple-50'); }}
+                              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-purple-600', 'bg-purple-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'video'); }}
+                            >
+                              {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Play className="w-5 h-5 text-purple-600 mb-1" />}
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-900">Upload Video</span>
+                              <span className="text-[9px] text-gray-400 mt-1">MP4, WebM, MOV</span>
+                              <input type="file" accept="video/*" onChange={(e) => handleFileUpload(e, 'video')} disabled={uploadingFile} className="hidden" />
+                            </label>
+                          </div>
+                          <div className="md:col-span-8">
+                            <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">Demo Video URL (Direct MP4, Loom, YouTube, or Vimeo)</label>
+                            <input type="text" value={newVideoUrl} onChange={(e) => setNewVideoUrl(e.target.value)} placeholder="https://... video file, Loom, or YouTube URL" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                            <span className="text-[9px] font-sans text-gray-400 mt-1 block">Full demo video playable in the popup modal when visitors click View Demo.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 3. PDF Document */}
                       {showPdfUrl && (
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
                           <div className="md:col-span-4">
-                            <label className="bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none">
-                              {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Upload PDF</span>
+                            <label className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-amber-600 rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[85px]">
+                              {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <FileText className="w-5 h-5 text-amber-600 mb-1" />}
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900">Upload PDF</span>
+                              <span className="text-[9px] text-gray-400 mt-1">Flowcharts, Architecture, Specs</span>
                               <input type="file" accept="application/pdf" onChange={(e) => handleFileUpload(e, 'pdf')} disabled={uploadingFile} className="hidden" />
                             </label>
                           </div>
                           <div className="md:col-span-8">
                             <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">PDF Document URL</label>
-                            <input type="url" value={newPdfUrl} onChange={(e) => setNewPdfUrl(e.target.value)} placeholder="https://example.com/file.pdf" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                            <input type="url" value={newPdfUrl} onChange={(e) => setNewPdfUrl(e.target.value)} placeholder="https://example.com/workflow-diagram.pdf" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                            <span className="text-[9px] font-sans text-gray-400 mt-1 block">PDF documentation viewable and downloadable directly in the modal.</span>
                           </div>
                         </div>
                       )}
 
+                      {/* 4. Website / Live Demo */}
                       {showWebsiteUrl && (
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
                           <div className="md:col-span-4 flex items-center justify-center">
-                            <div className="bg-gray-100 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center opacity-50 cursor-not-allowed w-full">
-                              <Globe className="w-5 h-5 text-gray-600 mb-1" />
-                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Web Link</span>
+                            <div className="bg-gray-100 border border-gray-300 rounded-none p-4 flex flex-col items-center justify-center text-center w-full min-h-[85px]">
+                              <Globe className="w-5 h-5 text-emerald-600 mb-1" />
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-900">Live Web / Tool Link</span>
+                              <span className="text-[9px] text-gray-400 mt-1">Endpoint or Web App</span>
                             </div>
                           </div>
                           <div className="md:col-span-8">
                             <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">Website / Live Demo URL</label>
                             <input type="url" value={newWebsiteUrl} onChange={(e) => setNewWebsiteUrl(e.target.value)} placeholder="https://example.com" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                            <span className="text-[9px] font-sans text-gray-400 mt-1 block">Embedded iframe or external link to live application / webhook.</span>
                           </div>
                         </div>
                       )}
 
-                      {/* Originals / Variants - only for shoot services */}
+                      {/* 4.5. End-to-End Workflow Pipeline (Automation specific) */}
+                      {(selectedServiceId === 'automation' || newVisualType === 'automation') && (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
+                          <div className="md:col-span-4 flex items-center justify-center">
+                            <div className="bg-cyan-50 border border-cyan-200 rounded-none p-4 flex flex-col items-center justify-center text-center w-full min-h-[85px]">
+                              <span className="text-[#007A93] font-bold text-xs mb-1">■ WORKFLOW</span>
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-900">Pipeline Steps</span>
+                              <span className="text-[9px] text-cyan-600 mt-1">Image 4 Flowchart</span>
+                            </div>
+                          </div>
+                          <div className="md:col-span-8">
+                            <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1 font-bold">
+                              End-to-End Workflow Steps (Separate steps with &quot;-&gt;&quot; or commas)
+                            </label>
+                            <input
+                              type="text"
+                              value={newWorkflowSteps}
+                              onChange={(e) => setNewWorkflowSteps(e.target.value)}
+                              placeholder="VISITOR -> ENQUIRY FORM -> SUBMISSION -> CONFIRMATION TO SENDER + NOTIFICATION TO CLIENT -> INSTAGRAM REDIRECT"
+                              className="w-full bg-white border border-gray-300 px-4 py-2 text-xs focus:border-gray-900 focus:outline-none text-gray-900 font-mono transition-all"
+                            />
+                            <span className="text-[9px] font-sans text-gray-400 mt-1 block">
+                              Displays connected flowchart badges in the case study popup (Image 4). Leave blank to use auto-detected steps.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 5. Additional Media / Screenshots / Variants */}
+                      {showGalleryImages && (
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
+                          <div className="md:col-span-4">
+                            <label
+                              className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[85px]"
+                              onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
+                              onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
+                              onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'variant'); }}
+                            >
+                              {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-wider">Additional Media</span>
+                              <span className="text-[9px] text-gray-400 mt-1">Batch upload screenshots</span>
+                              <input type="file" multiple accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'variant')} disabled={uploadingFile} className="hidden" />
+                            </label>
+                          </div>
+                          <div className="md:col-span-8">
+                            <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">{isShootService ? 'AI Shoot Images (Comma Separated)' : 'Additional Screenshots / Diagrams (Comma Separated)'}</label>
+                            <input type="text" value={newGeneratedVariants} onChange={(e) => setNewGeneratedVariants(e.target.value)} placeholder="https://img1.jpg, https://img2.jpg" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
+                            <span className="text-[9px] font-sans text-gray-400 mt-1 block">Secondary images or workflow diagrams displayed in the modal gallery.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Originals - only for shoot services */}
                       {isShootService && (
                         <>
                           <div className="grid grid-cols-1 gap-6 items-center border-t border-gray-200 pt-4">
@@ -1531,9 +2125,8 @@ export default function AdminPanel({
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center border-t border-gray-200 pt-4">
                             <div className="md:col-span-4">
-                              {/* #13 — Drag & drop for originals */}
                               <label
-                                className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
+                                className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[85px]"
                                 onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
                                 onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
                                 onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'original'); }}
@@ -1547,26 +2140,6 @@ export default function AdminPanel({
                             <div className="md:col-span-8">
                               <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">Original Images (Comma Separated)</label>
                               <input type="text" value={newOriginalUrls} onChange={(e) => setNewOriginalUrls(e.target.value)} placeholder="Comma separated URLs" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                            <div className="md:col-span-4">
-                              {/* #13 — Drag & drop for variants */}
-                              <label
-                                className="bg-gray-100 hover:bg-gray-200 border-2 border-dashed border-gray-300 hover:border-[#007A93] rounded-none p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all select-none min-h-[80px]"
-                                onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#007A93]', 'bg-blue-50'); }}
-                                onDragLeave={e => { e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); }}
-                                onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#007A93]', 'bg-blue-50'); const dt = { target: { files: e.dataTransfer.files } } as any; handleFileUpload(dt, 'variant'); }}
-                              >
-                                {uploadingFile ? <Loader className="w-5 h-5 animate-spin mb-1" /> : <Upload className="w-5 h-5 text-gray-600 mb-1" />}
-                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider">AI Variants</span>
-                                <span className="text-[9px] text-gray-400 mt-1">Click or drag & drop</span>
-                                <input type="file" multiple accept="image/*" onChange={(e) => handleFileUpload(e, 'variant')} disabled={uploadingFile} className="hidden" />
-                              </label>
-                            </div>
-                            <div className="md:col-span-8">
-                              <label className="block text-[9px] font-mono uppercase text-gray-500 mb-1">AI Shoot Images (Comma Separated)</label>
-                              <input type="text" value={newGeneratedVariants} onChange={(e) => setNewGeneratedVariants(e.target.value)} placeholder="Comma separated URLs" className="w-full bg-gray-50 border border-gray-300 px-4 py-2 text-xs focus:border-white focus:outline-none text-gray-900 transition-all" />
                             </div>
                           </div>
                         </>
@@ -1677,16 +2250,67 @@ export default function AdminPanel({
                     </div>
                   ))}
 
-                  <div className="space-y-8">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
+                    <p className="text-xs text-gray-500 font-sans">
+                      Organize, reorder, or minimize/maximize service subsections and their categories.
+                    </p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allCollapsed: Record<string, boolean> = {};
+                          (previewServices || services).forEach(s => {
+                            if (s.subsections?.length) allCollapsed[s.id] = false;
+                          });
+                          setCollapsedServices(allCollapsed);
+                        }}
+                        className="text-[10px] font-mono uppercase tracking-wider text-gray-600 hover:text-black bg-white hover:bg-gray-100 border border-gray-200 px-2.5 py-1 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Expand All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allCollapsed: Record<string, boolean> = {};
+                          (previewServices || services).forEach(s => {
+                            if (s.subsections?.length) allCollapsed[s.id] = true;
+                          });
+                          setCollapsedServices(allCollapsed);
+                        }}
+                        className="text-[10px] font-mono uppercase tracking-wider text-gray-600 hover:text-black bg-white hover:bg-gray-100 border border-gray-200 px-2.5 py-1 transition-colors cursor-pointer shadow-xs"
+                      >
+                        Collapse All
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
                     {(previewServices || services).map(s => {
                       if (!s.subsections || s.subsections.length === 0) return null;
-                      return (
-                        <div key={s.id} className="space-y-4">
-                          <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest border-b border-gray-200 pb-2">
-                            {s.name} Subsections ({s.subsections.length})
-                          </h4>
+                      const isServiceCollapsed = collapsedServices[s.id];
 
-                          <div className="space-y-6 mt-4">
+                      return (
+                        <div key={s.id} className="space-y-4 bg-gray-50/50 p-4 border border-gray-200 rounded-none">
+                          {/* Service Header with Minimize/Maximize Toggle */}
+                          <div 
+                            className="flex justify-between items-center cursor-pointer select-none bg-white p-3 border border-gray-200 hover:border-[#007A93]/60 transition-all shadow-xs"
+                            onClick={() => setCollapsedServices(prev => ({ ...prev, [s.id]: !isServiceCollapsed }))}
+                          >
+                            <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest flex items-center gap-2">
+                              <span>{s.name} Subsections</span>
+                              <span className="bg-[#007A93]/10 text-[#007A93] px-2 py-0.5 rounded-none text-[10px] font-bold">
+                                ({s.subsections.length})
+                              </span>
+                            </h4>
+                            <div className="flex items-center gap-3">
+                              <span className="text-gray-400 font-mono text-[10px] w-14 text-right font-bold tracking-wider">
+                                {isServiceCollapsed ? 'SHOW ▼' : 'HIDE ▲'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isServiceCollapsed && (
+                            <div className="space-y-6 mt-4">
                             {/* Group subsections by category */}
                             {(() => {
                               const grouped = s.subsections.reduce((acc, sub, idx) => {
@@ -1809,15 +2433,38 @@ export default function AdminPanel({
                                               src={sub.visualUrl}
                                               alt={sub.title}
                                               className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
+                                              style={{ objectPosition: sub.imagePosition || (s.id === 'website-design' ? 'top' : 'center') }}
                                             />
                                             <div className="overflow-hidden">
                                               <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
                                               <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
                                                 Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
                                               </span>
-                                              <span className="font-mono text-[9px] text-[#007A93] tracking-wider uppercase mt-1 block">
-                                                {sub.visualType}
-                                              </span>
+                                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                                <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
+                                                  {sub.visualType || 'image'}
+                                                </span>
+                                                {sub.imagePosition && (
+                                                  <span className="font-mono text-[8px] text-gray-700 bg-gray-200 border border-gray-300 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                    Crop: {sub.imagePosition}
+                                                  </span>
+                                                )}
+                                                {sub.videoUrl && (
+                                                  <span className="font-mono text-[8px] text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                    + Video
+                                                  </span>
+                                                )}
+                                                {sub.pdfUrl && (
+                                                  <span className="font-mono text-[8px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                    + PDF
+                                                  </span>
+                                                )}
+                                                {sub.websiteUrl && (
+                                                  <span className="font-mono text-[8px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                    + Web
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
                                           </div>
 
@@ -1848,6 +2495,7 @@ export default function AdminPanel({
                             })
                             })()}
                           </div>
+                          )}
                         </div>
                       );
                     })}

@@ -13,9 +13,12 @@ export interface ServiceSubsection {
   instaLink?: string;
   websiteUrl?: string;
   pdfUrl?: string;
+  videoUrl?: string;
   popupType?: 'image' | 'video' | 'pdf' | 'website-embed' | 'website-link' | 'text';
   subSubCategory?: string;
   isComparisonMode?: boolean;
+  imagePosition?: string;
+  workflowSteps?: string[];
 }
 
 export interface ServiceDetail {

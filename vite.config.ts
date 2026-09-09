@@ -6,6 +6,7 @@ import apiServer from './src/server/api';
 
 export default defineConfig(() => {
   return {
+    base: './',
     plugins: [
       react(), 
       tailwindcss(),

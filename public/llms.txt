@@ -1,0 +1,26 @@
+# creo STUDIO
+
+> creo STUDIO is a premier multi-disciplinary creative production agency specializing in custom web production, AI photoshoot & photography, editorial catalog generation, and automated digital workflows.
+
+creo STUDIO merges software engineering with generative AI photography to eliminate traditional set logistics, producing commercial-grade visual assets and ultra-responsive web applications for modern brands.
+
+## Core Capabilities & Services
+
+- [Custom Web Production](/services.md#custom-web-production): Bespoke React, Vite, TypeScript, and Tailwind CSS web architectures. High-performance, SEO-optimized, accessible digital portfolios, editorial platforms, and dynamic web apps with 100/100 Lighthouse performance metrics.
+- [AI Photoshoot & Commercial Photography](/services.md#ai-photoshoot): Ultra-realistic studio-grade fashion, apparel, and product visual shoots with custom brand model training, 85mm virtual lens simulation, dynamic lighting control, zero physical set constraints, and full commercial licensing.
+- [AI Video Shoot & Motion Commercials](/services.md#ai-video-shoot): High-octane commercial video assets, hyper-real cinematic shorts, 2K/4K render exports, and dynamic motion panning for streetwear and luxury brand campaigns.
+- [Editorial Catalog Design & Automation](/services.md#catalog-automation): Automated CSV-to-Catalog pipelines, minimalist print-ready layouts, and digital interactive lookbooks that turn complex inventories into high-conversion editorial presentations.
+- [Brand Building & Identity Design](/services.md#brand-building): Swiss minimalist logotype anatomy, geometric typography pairings, matte luxury packaging 3D setups, and unified design system specifications.
+- [Workflow Automation & AI Agent Dispatch](/services.md#automation): 24/7 autonomous process execution, automated lead dispatch engines, multi-platform database synchronization, and automated social content pipelines.
+
+## Key Technical Specifications
+
+- Frontend Engine: React 19, TypeScript, Vite 6, Tailwind CSS v4, Motion (Framer Motion)
+- Backend & Intelligence: Express.js, Google Gemini API (@google/genai), Supabase PostgreSQL
+- Visual Quality SLA: 2K-4K export resolutions, realistic skin-pore texture synthesis, true-to-life cloth drape physics, zero physical set rental overhead
+- Typical Turnaround: 24–48 hours for AI photoshoot variants; rapid iterative sprints for web production
+
+## Machine-Readable Resources
+
+- [Services Breakdown](/services.md): Detailed specifications, workflows, and deliverables for each service tier.
+- [Robots Configuration](/robots.txt): Crawler rules and accessibility indexing guidelines.
