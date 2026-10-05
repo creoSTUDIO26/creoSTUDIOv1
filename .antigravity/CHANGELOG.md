@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## [2026-10-05 17:05] — Fixed header logo overlap on Project Detail View
+- Action:
+  - In `src/components/ProjectDetailView.tsx`: adjusted top padding from `py-8 sm:py-10` to `pt-24 pb-8 sm:pt-28 sm:pb-10` with a clean bottom-bordered navigation wrapper, ensuring the "Back to Case Studies" button and editorial title clear the fixed top navigation bar and `creoSTUDIO` logo.
+  - In `src/components/ReviewPage.tsx`: ensured adequate `pt-28` top padding for consistent clearance.
+- Reason: User reported that clicking "Projects We Are Proud Of" caused a UI error in the top left corner where the fixed logo overlapped the back button.
+- Type: fix | UI
+
 ## [2026-10-04 13:08] — Made Brand Building cards compact to fit full view on screen
 - Action:
   - In `src/components/ServiceInnerView.tsx`: replaced the 2-column oversized square card layout for Brand Building with a responsive 4-column compact grid (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`); configured image container to `aspect-[4/3] sm:aspect-square` with `object-contain`, compact padding, streamlined brand metadata, and direct interaction buttons so cards fit cleanly within the viewport without requiring vertical scrolling.

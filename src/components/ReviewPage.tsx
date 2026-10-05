@@ -65,7 +65,7 @@ export default function ReviewPage({ services, testimonials = [], onBack, onSubm
   };
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center px-4 pt-28 pb-12 relative overflow-hidden">
       {/* Decorative background elements */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-black/[0.02] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-black/[0.03] rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />

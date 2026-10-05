@@ -20,10 +20,10 @@ export default function ProjectDetailView({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -15 }}
       transition={{ duration: 0.5 }}
-      className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 overflow-x-hidden"
+      className="relative w-full min-w-0 max-w-7xl mx-auto px-4 sm:px-6 pt-24 pb-8 sm:pt-28 sm:pb-10 overflow-x-hidden"
     >
       {/* Back to Case Studies */}
-      <div className="mb-8 relative z-10">
+      <div className="mb-8 relative z-10 border-b border-black/5 pb-4">
         <button
           id="btn-project-back"
           onClick={onBack}
