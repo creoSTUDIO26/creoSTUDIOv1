@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ServiceDetail, ServiceSubsection } from '../types';
+import { ServiceDetail, ServiceSubsection, ClientProfile } from '../types';
 import { ArrowLeft, Sparkles, Plus, Image, ArrowUpRight, Check, Sliders, Play, Cpu, Film, Compass, Globe, Upload, Loader, AlertCircle, X, ChevronLeft, ChevronRight, Instagram, ExternalLink, FileText, Download, Monitor, Tablet, Smartphone, Lock, RefreshCw } from 'lucide-react';
 import { getThumbnailUrl } from '../lib/supabase';
 
@@ -9,6 +9,7 @@ interface ServiceInnerViewProps {
   key?: string;
   service: ServiceDetail;
   services: ServiceDetail[];
+  clients?: ClientProfile[];
   onBack: () => void;
   onNavigateToService: (id: string) => void;
   onEnquire: () => void;
@@ -18,12 +19,7 @@ interface ServiceInnerViewProps {
 
 // Service-specific category configs
 const SERVICE_CATEGORIES: Record<string, string[]> = {
-  'e-invitation': ['Still Cards', 'Motion Cards', 'Invitation Website'],
-  'catalog': ['PDF', 'Website'],
-  'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Others'],
-  'automation': ['Email Automation', 'WhatsApp Automation', 'Internal Workflow', 'Chatbots'],
-  'website-design': ['E-Commerce', 'Corporate', 'Landing Pages', 'Portfolio'],
-  'brand-building': ['Brand Identity', 'Strategy', 'Naming', 'Positioning']
+  'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot']
 };
 
 const EINVITATION_SUBCATEGORIES = ['Wedding', 'Other Function'];
@@ -31,6 +27,7 @@ const EINVITATION_SUBCATEGORIES = ['Wedding', 'Other Function'];
 export default function ServiceInnerView({
   service,
   services,
+  clients,
   onBack,
   onNavigateToService,
   onEnquire,
@@ -48,9 +45,11 @@ export default function ServiceInnerView({
   const [iframeKey, setIframeKey] = useState<number>(0);
 
   const isShootService = service.id === 'ai-photo-shoot' || service.id === 'ai-video-shoot';
+  const isCategoryDisabled = service.id !== 'ai-photo-shoot';
 
   const getExistingCategories = () => {
-    // For shoot services, collect from data (not hardcoded)
+    if (isCategoryDisabled) return [];
+    // For photo shoot, collect from data (not hardcoded)
     const cats = new Set<string>();
     service.subsections?.forEach(sub => {
       if (sub.subCategory && sub.subCategory !== 'Custom') cats.add(sub.subCategory);
@@ -75,15 +74,12 @@ export default function ServiceInnerView({
     return catsArray;
   };
 
-  const categories = ['All', ...getExistingCategories()];
+  const categories = isCategoryDisabled ? [] : ['All', ...getExistingCategories()];
 
   const filteredSubsections = (() => {
     let items = service.subsections;
-    if (selectedCategory !== 'All') {
+    if (service.id === 'ai-photo-shoot' && selectedCategory !== 'All') {
       items = items.filter(sub => (sub.subCategory || 'General') === selectedCategory);
-    }
-    if (service.id === 'e-invitation' && selectedSubCategory !== 'All') {
-      items = items.filter(sub => (sub.subSubCategory || 'Wedding') === selectedSubCategory);
     }
     if (isShootService && activeBrand) {
       items = items.filter(sub => (sub.brandName || 'Other') === activeBrand);
@@ -1041,7 +1037,34 @@ export default function ServiceInnerView({
     );
   };
 
+  const getDirectLink = (item: ServiceSubsection): string | null => {
+    if (item.websiteUrl?.trim()) return item.websiteUrl.trim();
+    if (item.instaLink?.trim()) return item.instaLink.trim();
+    if (item.pdfUrl?.trim()) return item.pdfUrl.trim();
+    if (item.videoUrl?.trim()) return item.videoUrl.trim();
+    if (item.visualUrl?.trim() && (item.visualUrl.startsWith('http://') || item.visualUrl.startsWith('https://')) && !item.visualUrl.includes('unsplash.com')) {
+      return item.visualUrl.trim();
+    }
+    return null;
+  };
+
+  const formatExternalUrl = (url: string): string => {
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
   const openItem = (item: ServiceSubsection) => {
+    // For automation and website design services (or popupType === 'website-link'), take the user directly to the site/link instead of opening a popup
+    if (service.id === 'automation' || service.id === 'website-design' || item.popupType === 'website-link') {
+      const link = getDirectLink(item);
+      if (link) {
+        window.open(formatExternalUrl(link), '_blank', 'noopener,noreferrer');
+        return;
+      }
+    }
+
     setSelectedItem(item);
     setActivePreviewUrl(item.generatedVariants?.[0] || item.visualUrl);
     setDeviceView('desktop');
@@ -1061,111 +1084,135 @@ export default function ServiceInnerView({
   // Editorial Numbered Cards: Clean layout matching Image 2 (Website Design & Automation)
   const renderEditorialCards = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-      {filteredSubsections.map((sub, idx) => (
-        <div
-          key={idx}
-          onClick={() => openItem(sub)}
-          className="group cursor-pointer flex flex-col transition-all duration-300"
-        >
-          {/* Top: Screenshot / Video container */}
-          <div className="relative w-full aspect-[4/3] bg-[#eaeaea] overflow-hidden border border-black/5 group-hover:border-black/20 transition-all duration-500 shadow-sm group-hover:shadow-md">
-            {isVideoUrl(sub.visualUrl) ? (
-              <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
-            ) : (
-              <img
-                src={getThumbnailUrl(sub.visualUrl, 800, 80)}
-                alt={sub.brandName || sub.title}
-                loading="lazy"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
-              />
-            )}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-            
-            {/* Badges for media availability */}
-            <div className="absolute top-3 left-3 flex flex-wrap gap-1 z-10">
-              {sub.videoUrl && (
-                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                  <Play className="w-2 h-2 text-[#007A93]" /> Video
-                </span>
-              )}
-              {sub.pdfUrl && (
-                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                  <FileText className="w-2 h-2 text-amber-400" /> PDF
-                </span>
-              )}
-              {sub.websiteUrl && (
-                <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                  <Globe className="w-2 h-2 text-emerald-400" /> Live
-                </span>
-              )}
-            </div>
-          </div>
+      {filteredSubsections.map((sub, idx) => {
+        const directLink = getDirectLink(sub);
 
-          {/* Bottom: Number + Category/Year + Title matching Image 2 */}
-          <div className="mt-4 flex items-start">
-            <span className="font-serif text-3xl sm:text-4xl lg:text-5xl text-black font-normal leading-none mr-3 sm:mr-4 shrink-0 select-none tracking-tight">
-              {String(idx + 1).padStart(2, '0')}.
-            </span>
-            <div className="overflow-hidden min-w-0 pt-0.5">
-              <span className="font-mono text-[9px] sm:text-[10px] text-black/50 uppercase tracking-widest block font-medium">
-                {(sub.subCategory || service.name).toUpperCase()} — {sub.meta || '2025'}
+        return (
+          <div
+            key={idx}
+            onClick={() => openItem(sub)}
+            className="group cursor-pointer flex flex-col transition-all duration-300"
+          >
+            {/* Top: Screenshot / Video container */}
+            <div className="relative w-full aspect-[4/3] bg-[#eaeaea] overflow-hidden border border-black/5 group-hover:border-black/20 transition-all duration-500 shadow-sm group-hover:shadow-md">
+              {isVideoUrl(sub.visualUrl) ? (
+                <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+              ) : (
+                <img
+                  src={getThumbnailUrl(sub.visualUrl, 800, 80)}
+                  alt={sub.brandName || sub.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+                />
+              )}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                {directLink && (
+                  <span className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 px-3 py-1.5 bg-black/90 text-white font-mono text-[9px] uppercase tracking-widest font-bold flex items-center gap-1.5 shadow-lg">
+                    <span>Visit Link</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+                  </span>
+                )}
+              </div>
+              
+              {/* Badges for media availability */}
+              <div className="absolute top-3 left-3 flex flex-wrap gap-1 z-10">
+                {sub.videoUrl && (
+                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                    <Play className="w-2 h-2 text-[#007A93]" /> Video
+                  </span>
+                )}
+                {sub.pdfUrl && (
+                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                    <FileText className="w-2 h-2 text-amber-400" /> PDF
+                  </span>
+                )}
+                {sub.websiteUrl && (
+                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                    <Globe className="w-2 h-2 text-emerald-400" /> Live
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom: Number + Category/Year + Title matching Image 2 */}
+            <div className="mt-4 flex items-start">
+              <span className="font-serif text-3xl sm:text-4xl lg:text-5xl text-black font-normal leading-none mr-3 sm:mr-4 shrink-0 select-none tracking-tight">
+                {String(idx + 1).padStart(2, '0')}.
               </span>
-              <h3 className="font-sans text-sm sm:text-base font-bold text-black tracking-tight mt-0.5 truncate group-hover:text-[#007A93] transition-colors">
-                {sub.brandName || sub.title}
-              </h3>
+              <div className="overflow-hidden min-w-0 pt-0.5 flex-1">
+                <span className="font-mono text-[9px] sm:text-[10px] text-black/50 uppercase tracking-widest block font-medium">
+                  {sub.meta ? sub.meta.toUpperCase() : service.name.toUpperCase()}
+                </span>
+                <h3 className="font-sans text-sm sm:text-base font-bold text-black tracking-tight mt-0.5 truncate group-hover:text-[#007A93] transition-colors flex items-center justify-between gap-1">
+                  <span className="truncate">{sub.brandName || sub.title}</span>
+                  {directLink && <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />}
+                </h3>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 
   const renderWebsiteDesignCards = renderEditorialCards;
 
-  // Square cards: Brand Building
-  const renderSquareCards = () => (
-    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+  // Brand Building cards: compact grid so full card fits neatly into viewport
+  const renderBrandBuildingCards = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
       {filteredSubsections.map((sub, idx) => (
         <div
           key={idx}
           onClick={() => openItem(sub)}
-          className="group cursor-pointer bg-white border border-black/5 hover:border-black/15 rounded-none overflow-hidden shadow-sm hover:shadow-lg transition-all duration-500"
+          className="group cursor-pointer bg-white border border-black/10 hover:border-black/30 rounded-none overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col"
         >
-          <div className="aspect-square overflow-hidden bg-[#eaeaea] relative">
+          <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-[#f4f4f4] relative flex items-center justify-center p-2.5">
             <img
-              src={getThumbnailUrl(sub.visualUrl, 600, 75)}
+              src={getThumbnailUrl(sub.visualUrl, 500, 75)}
               alt={sub.brandName || sub.title}
               loading="lazy"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+              style={{ objectPosition: sub.imagePosition || 'center' }}
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+            {sub.pdfUrl && (
+              <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-1.5 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                <FileText className="w-2 h-2 text-amber-400" /> Brand Kit
+              </span>
+            )}
           </div>
-          <div className="p-4 sm:p-5">
-            <h4 className="font-display text-sm sm:text-base font-bold uppercase tracking-tight text-black mb-1 truncate">
-              {sub.brandName || sub.title}
-            </h4>
-            {service.id === 'brand-building' && sub.instaLink && (
+          <div className="p-3 sm:p-3.5 flex flex-col justify-between flex-1 border-t border-black/5 bg-white">
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-tight text-black truncate">
+                {sub.brandName || sub.title}
+              </h4>
+              <ArrowUpRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+            </div>
+            {sub.meta && (
+              <span className="font-mono text-[9px] text-black/50 uppercase tracking-wider block mb-1 truncate">
+                {sub.meta}
+              </span>
+            )}
+            {sub.instaLink && (
               <a
                 href={sub.instaLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[10px] font-mono text-black/50 hover:text-[#007A93] transition-colors mb-2"
+                className="inline-flex items-center gap-1 text-[9px] font-mono text-[#007A93] hover:text-black transition-colors w-max mt-0.5"
                 onClick={e => e.stopPropagation()}
               >
-                <Instagram className="w-3.5 h-3.5" />
+                <Instagram className="w-3 h-3" />
                 <span className="uppercase tracking-wider">Instagram</span>
               </a>
             )}
-            <p className="text-xs sm:text-sm font-sans text-black/60 leading-relaxed line-clamp-2">
-              {sub.description}
-            </p>
           </div>
         </div>
       ))}
     </div>
   );
+
+  const renderSquareCards = renderBrandBuildingCards;
 
   // Image-only cards: E-Invitation, Catalog, Insta Grid
   // #2 — Use object-contain so images are not cropped; padded background gives context
@@ -1307,14 +1354,36 @@ export default function ServiceInnerView({
     </div>
   );
 
+  // Helper to get what the brand is (e.g. Interior Design)
+  const getBrandDescriptor = (bName: string, sub?: ServiceSubsection) => {
+    if (sub?.meta && sub.meta.trim()) return sub.meta.trim();
+    if (sub?.subCategory && sub.subCategory !== 'General' && sub.subCategory !== 'Custom' && sub.subCategory.trim()) {
+      return sub.subCategory.trim();
+    }
+    if (sub?.title && sub.title.trim().toLowerCase() !== bName.trim().toLowerCase()) {
+      return sub.title.trim();
+    }
+    const clientMatch = clients?.find(c => c.name.toLowerCase() === bName.toLowerCase());
+    if (clientMatch?.industry && clientMatch.industry.trim()) {
+      return clientMatch.industry.trim();
+    }
+    const normalized = bName.toLowerCase();
+    if (normalized.includes('studio@mrs') || normalized.includes('mrs')) return 'Interior Design';
+    if (normalized.includes('neelant')) return 'Product Shoot';
+    if (normalized.includes('happy homes')) return 'Interior Design';
+    if (normalized.includes('other')) return 'Footwear & Lifestyle';
+    return '';
+  };
+
   // --- Brand Group Gallery for AI Shoots ---
   const renderBrandGallery = () => {
-    const brandsMap = new Map<string, ServiceSubsection>();
+    const brandsMap = new Map<string, ServiceSubsection[]>();
     filteredSubsections.forEach(sub => {
       const bName = sub.brandName || 'Other';
       if (!brandsMap.has(bName)) {
-        brandsMap.set(bName, sub);
+        brandsMap.set(bName, []);
       }
+      brandsMap.get(bName)!.push(sub);
     });
 
     const brandEntries = Array.from(brandsMap.entries());
@@ -1329,28 +1398,49 @@ export default function ServiceInnerView({
 
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
-        {brandEntries.map(([brandName, firstSub]) => (
-          <div
-            key={brandName}
-            onClick={() => setActiveBrand(brandName)}
-            className="group cursor-pointer rounded-none overflow-hidden bg-white border border-black/5 relative aspect-square shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
-          >
-            <div className="w-full flex-1 relative overflow-hidden">
-              <img
-                src={getThumbnailUrl(firstSub.visualUrl, 600, 75)}
-                alt={brandName}
-                loading="lazy"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                style={{ objectPosition: firstSub.imagePosition || 'center' }}
-              />
-              <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
+        {brandEntries.map(([brandName, brandSubs]) => {
+          const firstSub = brandSubs[0];
+          const descriptor = getBrandDescriptor(brandName, firstSub);
+
+          const handleBrandClick = () => {
+            if (brandSubs.length === 1) {
+              setSelectedItem(firstSub);
+              setActivePreviewUrl(firstSub.generatedVariants?.[0] || firstSub.visualUrl);
+            } else {
+              setActiveBrand(brandName);
+            }
+          };
+
+          return (
+            <div
+              key={brandName}
+              onClick={handleBrandClick}
+              className="group cursor-pointer rounded-none overflow-hidden bg-white border border-black/5 relative aspect-square shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
+            >
+              <div className="w-full flex-1 relative overflow-hidden">
+                <img
+                  src={getThumbnailUrl(firstSub.visualUrl, 600, 75)}
+                  alt={brandName}
+                  loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  style={{ objectPosition: firstSub.imagePosition || 'center' }}
+                />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
+              </div>
+              <div className="p-4 bg-white border-t border-black/5 flex items-center justify-between gap-2">
+                <div className="flex items-baseline flex-wrap gap-1.5 min-w-0 pr-2">
+                  <span className="font-display font-bold uppercase text-black truncate">{brandName}</span>
+                  {descriptor && (
+                    <span className="text-[11px] sm:text-xs font-sans font-normal italic text-black/60 whitespace-nowrap">
+                      ({descriptor})
+                    </span>
+                  )}
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-black/40 group-hover:text-black transition-colors shrink-0" />
+              </div>
             </div>
-            <div className="p-4 bg-white border-t border-black/5 flex items-center justify-between">
-              <span className="font-display font-bold uppercase text-black truncate pr-4">{brandName}</span>
-              <ArrowUpRight className="w-4 h-4 text-black/40 group-hover:text-black transition-colors" />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -1382,6 +1472,8 @@ export default function ServiceInnerView({
       default:
         if (isShootService) {
           if (activeBrand) {
+            const activeSub = filteredSubsections.find(sub => (sub.brandName || 'Other') === activeBrand);
+            const activeDescriptor = getBrandDescriptor(activeBrand, activeSub);
             return (
               <div className="space-y-6">
                 <button 
@@ -1391,7 +1483,15 @@ export default function ServiceInnerView({
                   <ChevronLeft className="w-4 h-4" /> BACK TO BRANDS
                 </button>
                 <div className="flex items-center gap-3 pb-4 border-b border-black/5">
-                  <h2 className="font-display text-2xl font-bold uppercase">{activeBrand} <span className="font-sans text-sm text-black/40 font-normal normal-case ml-2">Shoot Gallery</span></h2>
+                  <h2 className="font-display text-2xl font-bold uppercase flex items-baseline flex-wrap gap-2">
+                    <span>{activeBrand}</span>
+                    {activeDescriptor && (
+                      <span className="text-base font-sans font-normal italic lowercase first-letter:uppercase text-black/50">
+                        ({activeDescriptor})
+                      </span>
+                    )}
+                    <span className="font-sans text-sm text-black/40 font-normal normal-case ml-1">Shoot Gallery</span>
+                  </h2>
                 </div>
                 {renderShootGallery()}
               </div>
@@ -1479,7 +1579,7 @@ export default function ServiceInnerView({
       {/* Category System */}
       <div className="mb-10 relative z-10">
         {/* Shoot services: category cards or back button */}
-        {isShootService && selectedCategory === 'All' ? (
+        {service.id === 'ai-photo-shoot' && selectedCategory === 'All' ? (
           <div className="-mx-4 sm:mx-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 pb-6 pt-2 px-4 sm:px-0 w-full">
               {categories.filter(cat => cat !== 'All').map((cat, idx) => {
@@ -1515,7 +1615,7 @@ export default function ServiceInnerView({
         ) : (
           <div className="flex flex-col gap-4">
             {/* Back to All / Category pills for non-shoot services */}
-            {isShootService && selectedCategory !== 'All' && (
+            {service.id === 'ai-photo-shoot' && selectedCategory !== 'All' && (
               <button
                 onClick={() => setSelectedCategory('All')}
                 className="text-xs font-sans font-bold uppercase tracking-wider text-black/60 hover:text-black transition-colors flex items-center gap-1 bg-black/5 hover:bg-black/10 px-3 py-1.5 rounded-none cursor-pointer w-max shrink-0"
@@ -1536,23 +1636,6 @@ export default function ServiceInnerView({
                     }`}
                   >
                     {cat}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Sub-category pills for E-Invitation */}
-            {service.id === 'e-invitation' && selectedCategory !== 'All' && (
-              <div className="flex flex-wrap gap-2">
-                {['All', ...EINVITATION_SUBCATEGORIES, ...Array.from(new Set(service.subsections.filter(s => s.subSubCategory && !EINVITATION_SUBCATEGORIES.includes(s.subSubCategory)).map(s => s.subSubCategory!)))].map(sub => (
-                  <button
-                    key={sub}
-                    onClick={() => setSelectedSubCategory(sub)}
-                    className={`px-3 py-1.5 text-[9px] font-mono font-bold uppercase tracking-widest border transition-all cursor-pointer ${
-                      selectedSubCategory === sub ? 'bg-[#007A93] text-white border-[#007A93]' : 'bg-white text-black/50 border-black/10 hover:border-black/20'
-                    }`}
-                  >
-                    {sub}
                   </button>
                 ))}
               </div>

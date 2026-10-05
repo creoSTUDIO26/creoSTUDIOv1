@@ -314,11 +314,28 @@ export interface LandingStat {
   label: string;
 }
 
+export interface ByTheNumbersStat {
+  id: string;
+  value: string;
+  label: string;
+  sublabel?: string;
+  fillPercentage?: number; // 0 - 100
+  color?: string; // hex or theme color, e.g. '#7c3aed'
+}
+
 export interface SiteSettings {
   useHeroAnimation: boolean;
   heroSlides: string[];
   liveStatsOverrides?: Record<string, number>;
+  byTheNumbersStats?: ByTheNumbersStat[];
 }
+
+export const DEFAULT_BY_THE_NUMBERS_STATS: ByTheNumbersStat[] = [
+  { id: 'stat-1', value: '1,280', label: 'Active users', sublabel: 'Global Reach', fillPercentage: 72, color: '#7c3aed' },
+  { id: 'stat-2', value: '450+', label: 'AI Shoots', sublabel: 'Fashion & Product', fillPercentage: 80, color: '#00c2cb' },
+  { id: 'stat-3', value: '180+', label: 'Video Campaigns', sublabel: 'Cinematic Visuals', fillPercentage: 65, color: '#3b82f6' },
+  { id: 'stat-4', value: '99.4%', label: 'Delivery Rate', sublabel: 'Client Satisfaction', fillPercentage: 88, color: '#10b981' },
+];
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   useHeroAnimation: true,
@@ -332,5 +349,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "https://images.unsplash.com/photo-1586717791821-3f44a563fa4c?auto=format&fit=crop&q=80&w=1200",
     "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200"
   ],
-  liveStatsOverrides: {}
+  liveStatsOverrides: {},
+  byTheNumbersStats: DEFAULT_BY_THE_NUMBERS_STATS
 };

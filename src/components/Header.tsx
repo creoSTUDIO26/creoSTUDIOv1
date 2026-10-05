@@ -82,7 +82,7 @@ export default function Header({
     <>
       <header 
         id="main-app-header"
-        className={`fixed top-0 left-0 w-full z-[100] px-6 py-4 flex items-center justify-between pointer-events-none transition-colors duration-300 ${isScrolled ? (isDarkBg ? 'bg-[#0a0a0a]/90 backdrop-blur-md' : 'bg-[#f7f7f7]/90 backdrop-blur-md shadow-sm') : ''}`}
+        className="fixed top-0 left-0 w-full z-[100] px-6 py-4 flex items-center justify-between pointer-events-none bg-transparent"
       >
         {/* Brand Logo */}
         <button 

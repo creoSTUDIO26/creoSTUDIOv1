@@ -42,7 +42,8 @@ import {
   PortfolioProject, 
   ClientInquiry,
   SiteSettings,
-  DEFAULT_SITE_SETTINGS
+  DEFAULT_SITE_SETTINGS,
+  DEFAULT_BY_THE_NUMBERS_STATS
 } from './types';
 
 // Subcomponents
@@ -53,6 +54,7 @@ import AdminPanel from './components/AdminPanel';
 import ReviewPage from './components/ReviewPage';
 import AnimatedHero from './components/AnimatedHero';
 import ChapterServices from './components/ChapterServices';
+import WaveStatCircle from './components/WaveStatCircle';
 import { supabase } from './lib/supabase';
 
 function AnimatedCounter({ value, duration = 2000, suffix = "" }: { value: number, duration?: number, suffix?: string }) {
@@ -680,6 +682,7 @@ export default function App() {
               key="service-view"
               service={services.find(s => s.id === activeServiceId) || services[0]}
               services={services}
+              clients={clients}
               initialItemId={serviceParams?.subId}
               initialBrand={serviceParams?.brand}
               onBack={() => {
@@ -1030,92 +1033,35 @@ export default function App() {
                 </div>
               </section>
 
-              {/* LANDING SECTION 5.5: LIVE STATS */}
-              <section id="live-stats-section" className="bg-[#fcfcfc] border-y border-black/10 py-12 md:py-20 relative z-10 w-full overflow-hidden">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                  <div className="text-center mb-10 md:mb-16">
-                    <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold uppercase text-black tracking-tighter">
-                      By The <span className="font-serif italic font-normal text-black/40 lowercase">Numbers</span>
+              {/* LANDING SECTION 5.5: BY THE NUMBERS (PRESET STATS WITH WAVE EFFECT) */}
+              <section id="live-stats-section" className="bg-[#0e0d0c] text-white border-y border-[#2a2825] py-16 sm:py-20 md:py-24 relative z-10 w-full overflow-hidden dark-section">
+                {/* Background atmospheric ambient glows */}
+                <div className="absolute inset-0 pointer-events-none opacity-20">
+                  <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#7c3aed]/20 blur-[120px]" />
+                  <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-[#00c2cb]/15 blur-[120px]" />
+                </div>
+
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+                  <div className="text-center mb-12 sm:mb-16 md:mb-20">
+                    <div className="inline-flex items-center gap-2 font-mono text-[10px] sm:text-xs text-[#00c2cb] uppercase tracking-[0.25em] font-semibold bg-[#00c2cb]/10 px-3 py-1 border border-[#00c2cb]/20 mb-3">
+                      <span>METRICS & MOMENTUM</span>
+                    </div>
+                    <h2 className="font-editorial text-3xl sm:text-4xl md:text-5xl lg:text-6xl uppercase text-white tracking-tight leading-tight">
+                      By The <span className="font-serif italic font-normal text-white/50 lowercase">Numbers</span>
                     </h2>
-                    <p className="font-mono text-xs text-black/40 mt-4 uppercase tracking-widest">Live Operations Graph</p>
+                    <p className="font-sans text-xs sm:text-sm text-white/60 mt-3 max-w-md mx-auto">
+                      Real-time impact and verified operational benchmarks across all creative productions.
+                    </p>
                   </div>
                   
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
-                    
-                    {/* Brands Stat */}
-                    <div className="bg-white rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)] p-4 sm:p-6 flex flex-col items-center justify-center text-center group hover:-translate-y-1 transition-transform duration-500">
-                       <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center mb-4">
-                          <svg className="w-full h-full transform -rotate-90 absolute inset-0" viewBox="0 0 96 96">
-                             <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="5" fill="transparent" className="text-emerald-500/10" />
-                             <motion.circle 
-                                cx="48" cy="48" r="40" 
-                                stroke="currentColor" 
-                                strokeWidth="5" 
-                                fill="transparent" 
-                                strokeDasharray={2 * Math.PI * 40}
-                                initial={{ strokeDashoffset: 2 * Math.PI * 40 }}
-                                whileInView={{ strokeDashoffset: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 1.5, ease: "easeOut" }}
-                                className="text-emerald-500 drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]" 
-                                strokeLinecap="round"
-                             />
-                          </svg>
-                          <div className="flex flex-col items-center absolute inset-0 justify-center">
-                            <span className="font-display text-xl sm:text-2xl font-bold text-black"><AnimatedCounter value={siteSettings.liveStatsOverrides?.['total_brands'] ?? clients.length} /></span>
-                          </div>
-                       </div>
-                       <h3 className="font-sans text-[10px] sm:text-xs font-bold text-black uppercase tracking-tight line-clamp-1 w-full">Total Brands</h3>
-                       <p className="font-mono text-[8px] sm:text-[9px] text-black/40 uppercase mt-1">Partnerships</p>
-                    </div>
-
-                    {/* Services Stats */}
-                    {services.map((service, idx) => {
-                       const actualCount = service.subsections?.length || 0;
-                       const count = siteSettings.liveStatsOverrides?.[service.id] ?? actualCount;
-                       const maxCount = Math.max(...services.map(s => siteSettings.liveStatsOverrides?.[s.id] ?? (s.subsections?.length || 0)), 1);
-                       const percent = Math.max((count / maxCount) * 100, 5); // at least 5% so it's visible
-                       
-                       const radius = 40;
-                       const circumference = 2 * Math.PI * radius;
-                       const offset = circumference - (percent / 100) * circumference;
-
-                       const colors = ['text-pink-500', 'text-blue-500', 'text-purple-500', 'text-orange-500', 'text-cyan-500'];
-                       const bgColors = ['text-pink-500/10', 'text-blue-500/10', 'text-purple-500/10', 'text-orange-500/10', 'text-cyan-500/10'];
-                       const dropShadows = ['drop-shadow-[0_0_6px_rgba(236,72,153,0.4)]', 'drop-shadow-[0_0_6px_rgba(59,130,246,0.4)]', 'drop-shadow-[0_0_6px_rgba(168,85,247,0.4)]', 'drop-shadow-[0_0_6px_rgba(249,115,22,0.4)]', 'drop-shadow-[0_0_6px_rgba(6,182,212,0.4)]'];
-                       
-                       const activeColor = colors[idx % colors.length];
-                       const activeBgColor = bgColors[idx % bgColors.length];
-                       const activeDropShadow = dropShadows[idx % dropShadows.length];
-
-                       return (
-                        <div key={service.id} className="bg-white rounded-3xl shadow-[0_10px_30px_-10px_rgba(0,0,0,0.08)] p-4 sm:p-6 flex flex-col items-center justify-center text-center group hover:-translate-y-1 transition-transform duration-500">
-                           <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center mb-4">
-                              <svg className="w-full h-full transform -rotate-90 absolute inset-0" viewBox="0 0 96 96">
-                                 <circle cx="48" cy="48" r={radius} stroke="currentColor" strokeWidth="5" fill="transparent" className={activeBgColor} />
-                                 <motion.circle 
-                                    cx="48" cy="48" r={radius} 
-                                    stroke="currentColor" 
-                                    strokeWidth="5" 
-                                    fill="transparent" 
-                                    strokeDasharray={circumference}
-                                    initial={{ strokeDashoffset: circumference }}
-                                    whileInView={{ strokeDashoffset: offset }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 1.5, ease: "easeOut", delay: idx * 0.1 }}
-                                    className={`${activeColor} ${activeDropShadow}`} 
-                                    strokeLinecap="round"
-                                 />
-                              </svg>
-                              <div className="flex flex-col items-center absolute inset-0 justify-center">
-                                <span className="font-display text-xl sm:text-2xl font-bold text-black"><AnimatedCounter value={count} /></span>
-                              </div>
-                           </div>
-                           <h3 className="font-sans text-[10px] sm:text-xs font-bold text-black uppercase tracking-tight line-clamp-1 w-full">{service.name}</h3>
-                           <p className="font-mono text-[8px] sm:text-[9px] text-black/40 uppercase mt-1">Total Delivered</p>
-                        </div>
-                       )
-                    })}
+                  {/* Circular Wave Stats Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 lg:gap-12 justify-center items-center">
+                    {(siteSettings.byTheNumbersStats && siteSettings.byTheNumbersStats.length > 0
+                      ? siteSettings.byTheNumbersStats
+                      : DEFAULT_BY_THE_NUMBERS_STATS
+                    ).map((stat) => (
+                      <WaveStatCircle key={stat.id} stat={stat} size="md" />
+                    ))}
                   </div>
                 </div>
               </section>

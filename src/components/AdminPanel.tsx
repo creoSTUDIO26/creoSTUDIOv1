@@ -25,22 +25,24 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Crop
+  Crop,
+  Layers,
+  Palette
 } from 'lucide-react';
-import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial, SiteSettings } from '../types';
+import { ServiceDetail, ServiceSubsection, ClientInquiry, ClientProfile, BrandWorkItem, PortfolioProject, Testimonial, SiteSettings, ByTheNumbersStat, DEFAULT_BY_THE_NUMBERS_STATS } from '../types';
+import WaveStatCircle from './WaveStatCircle';
 import { supabase } from '../lib/supabase';
 
 // Per-service category configs for admin
-// #3 — Added brand-building and more insta categories
 const ADMIN_CATEGORIES: Record<string, string[]> = {
   'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
-  'ai-video-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
-  'automation': ['Email Automation', 'WhatsApp Automation', 'Internal Workflow', 'Chatbots', 'Custom Tools', 'General'],
-  'website-design': ['E-Commerce', 'Corporate', 'Landing Pages', 'Portfolio', 'Web Applications', 'General'],
-  'e-invitation': ['Still Cards', 'Motion Cards', 'Invitation Website'],
-  'catalog': ['PDF', 'Website', 'Product Catalog', 'Lookbook'],
-  'insta-grid-stories': ['Grid', 'Stories', 'Posters', 'Reels Cover', 'Others'],
-  'brand-building': ['Logo Design', 'Brand Identity', 'Color Palette', 'Typography', 'Brand Guide', 'Others'],
+  'ai-video-shoot': [],
+  'automation': [],
+  'website-design': [],
+  'e-invitation': [],
+  'catalog': [],
+  'insta-grid-stories': [],
+  'brand-building': [],
 };
 
 const POPUP_TYPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
@@ -427,7 +429,10 @@ export default function AdminPanel({
   };
 
   // Which services hide title/description (image-only cards)
+  const isCategoryDisabled = selectedServiceId !== 'ai-photo-shoot';
+
   const getExistingCategories = () => {
+    if (isCategoryDisabled) return [];
     const cats = new Set<string>();
     const svc = services.find(s => s.id === selectedServiceId);
     svc?.subsections?.forEach(sub => {
@@ -446,7 +451,7 @@ export default function AdminPanel({
   const showVideoUrl = ['automation', 'website-design', 'catalog', 'e-invitation', 'brand-building', 'ai-video-shoot'].includes(selectedServiceId) || newVisualType === 'video' || newPopupType === 'video';
   const showGalleryImages = isShootService || ['automation', 'website-design', 'brand-building', 'catalog'].includes(selectedServiceId);
   const showPopupType = !!POPUP_TYPE_OPTIONS[selectedServiceId];
-  const showSubSubCategory = selectedServiceId === 'e-invitation';
+  const showSubSubCategory = false;
   const adminCats = ADMIN_CATEGORIES[selectedServiceId];
 
   const handleEditSubsection = (item: ServiceSubsection, serviceId: string) => {
@@ -506,7 +511,7 @@ export default function AdminPanel({
     if (!isNoTextService && (!newTitle || !newDescription)) return;
 
     setIsSaving(true);
-    const finalCategory = newCategory === 'Custom' ? (newCustomCategory.trim() || 'General') : newCategory;
+    const finalCategory = isCategoryDisabled ? undefined : (newCategory === 'Custom' ? (newCustomCategory.trim() || 'General') : newCategory);
     const finalUrl = newVisualUrl.trim() || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800";
 
     const originalUrlsArray = newOriginalUrls.split(',').map(s => s.trim()).filter(Boolean);
@@ -1244,56 +1249,200 @@ export default function AdminPanel({
                   )}
                 </div>
 
-                {/* #11 — Live Operations Graph Editor */}
-                <div className="bg-gray-50 border border-gray-200 rounded-none p-6">
-                  <h3 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">Live Operations Graph (By The Numbers)</h3>
-                  <p className="text-xs text-gray-500 mb-6 font-sans">Set manual overrides for the live operations stats. Leave blank to auto-calculate from uploaded work.</p>
-                  <div className="space-y-4">
-                    {/* Total Brands Override */}
-                    <div className="bg-white border border-gray-200 p-4 grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">Total Brands</label>
-                        <p className="text-[9px] font-sans text-gray-400 mb-2">Auto-calculated: {clients.length}</p>
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          placeholder="Leave blank for auto"
-                          value={siteSettings.liveStatsOverrides?.['total_brands'] ?? ''}
-                          onChange={async (e) => {
-                            const val = e.target.value === '' ? undefined : Number(e.target.value);
-                            const overrides = { ...(siteSettings.liveStatsOverrides || {}) };
-                            if (val === undefined) delete overrides['total_brands'];
-                            else overrides['total_brands'] = val;
-                            await updateSiteSettings({ ...siteSettings, liveStatsOverrides: overrides });
-                          }}
-                          className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-sm focus:outline-none font-mono"
-                        />
-                      </div>
+                {/* #11 — By The Numbers Preset Stats Manager */}
+                <div className="bg-gray-50 border border-gray-200 rounded-none p-6 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 pb-4">
+                    <div>
+                      <h3 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest flex items-center gap-2">
+                        <Layers className="w-4 h-4" /> By The Numbers — Preset Stats Manager
+                      </h3>
+                      <p className="text-xs text-gray-500 font-sans mt-0.5">
+                        Customize the preset numbers, titles, wave fill heights, and glowing colors for the circular liquid wave widgets.
+                      </p>
                     </div>
-                    {/* Service overrides */}
-                    {services.map(s => {
-                      const currentAuto = s.subsections?.length || 0;
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const current = siteSettings.byTheNumbersStats || DEFAULT_BY_THE_NUMBERS_STATS;
+                        const newStat: ByTheNumbersStat = {
+                          id: `stat-${Date.now().toString(36)}`,
+                          value: '100+',
+                          label: 'New Metric',
+                          sublabel: 'Performance',
+                          fillPercentage: 70,
+                          color: '#7c3aed'
+                        };
+                        const updated = [...current, newStat];
+                        await updateSiteSettings({ ...siteSettings, byTheNumbersStats: updated });
+                        triggerToast('New preset stat added!');
+                      }}
+                      className="px-4 py-2 bg-gray-900 text-white hover:bg-gray-800 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Stat
+                    </button>
+                  </div>
+
+                  {/* Stats list with live preview */}
+                  <div className="space-y-4">
+                    {(siteSettings.byTheNumbersStats && siteSettings.byTheNumbersStats.length > 0
+                      ? siteSettings.byTheNumbersStats
+                      : DEFAULT_BY_THE_NUMBERS_STATS
+                    ).map((stat, sIdx, arr) => {
+                      const updateSingleStat = async (field: keyof ByTheNumbersStat, value: any) => {
+                        const updatedList = arr.map((s, idx) => idx === sIdx ? { ...s, [field]: value } : s);
+                        await updateSiteSettings({ ...siteSettings, byTheNumbersStats: updatedList });
+                      };
+
+                      const moveStat = async (direction: 'up' | 'down') => {
+                        const nextList = [...arr];
+                        const targetIdx = direction === 'up' ? sIdx - 1 : sIdx + 1;
+                        if (targetIdx < 0 || targetIdx >= nextList.length) return;
+                        const temp = nextList[targetIdx];
+                        nextList[targetIdx] = nextList[sIdx];
+                        nextList[sIdx] = temp;
+                        await updateSiteSettings({ ...siteSettings, byTheNumbersStats: nextList });
+                      };
+
+                      const deleteStat = async () => {
+                        if (arr.length <= 1) {
+                          alert('At least one stat is required.');
+                          return;
+                        }
+                        const nextList = arr.filter((_, idx) => idx !== sIdx);
+                        await updateSiteSettings({ ...siteSettings, byTheNumbersStats: nextList });
+                        triggerToast('Stat removed.');
+                      };
+
+                      const PRESET_COLORS = [
+                        { name: 'Purple', hex: '#7c3aed' },
+                        { name: 'Cyan', hex: '#00c2cb' },
+                        { name: 'Blue', hex: '#3b82f6' },
+                        { name: 'Emerald', hex: '#10b981' },
+                        { name: 'Pink', hex: '#ec4899' },
+                        { name: 'Gold', hex: '#f59e0b' },
+                      ];
+
                       return (
-                        <div key={s.id} className="bg-white border border-gray-200 p-4 grid grid-cols-2 gap-3 items-end">
-                          <div>
-                            <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">{s.name}</label>
-                            <p className="text-[9px] font-sans text-gray-400 mb-2">Auto-calculated: {currentAuto}</p>
+                        <div key={stat.id || sIdx} className="bg-white border border-gray-200 p-4 sm:p-5 rounded-none flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between shadow-xs">
+                          {/* Live Circular Wave Preview */}
+                          <div className="shrink-0 flex flex-col items-center bg-[#0a0a0a] p-3 border border-gray-800 rounded-lg shadow-inner">
+                            <span className="text-[8px] font-mono text-gray-400 uppercase tracking-widest mb-1 font-bold">Live Preview</span>
+                            <WaveStatCircle stat={stat} size="sm" />
                           </div>
-                          <div>
-                            <input
-                              type="number"
-                              placeholder="Leave blank for auto"
-                              value={siteSettings.liveStatsOverrides?.[s.id] ?? ''}
-                              onChange={async (e) => {
-                                const val = e.target.value === '' ? undefined : Number(e.target.value);
-                                const overrides = { ...(siteSettings.liveStatsOverrides || {}) };
-                                if (val === undefined) delete overrides[s.id];
-                                else overrides[s.id] = val;
-                                await updateSiteSettings({ ...siteSettings, liveStatsOverrides: overrides });
-                              }}
-                              className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-sm focus:outline-none font-mono"
-                            />
+
+                          {/* Editable Controls */}
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                            {/* Value */}
+                            <div>
+                              <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">Number / Value *</label>
+                              <input
+                                type="text"
+                                value={stat.value}
+                                onChange={(e) => updateSingleStat('value', e.target.value)}
+                                placeholder="e.g. 1,280, 99%, 450+"
+                                className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-gray-900"
+                              />
+                            </div>
+
+                            {/* Label */}
+                            <div>
+                              <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">Main Label *</label>
+                              <input
+                                type="text"
+                                value={stat.label}
+                                onChange={(e) => updateSingleStat('label', e.target.value)}
+                                placeholder="e.g. Active users"
+                                className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs font-sans text-gray-900 focus:outline-none focus:border-gray-900"
+                              />
+                            </div>
+
+                            {/* Sublabel */}
+                            <div>
+                              <label className="block text-[10px] font-mono font-bold uppercase text-gray-700 mb-1">Sublabel (Optional)</label>
+                              <input
+                                type="text"
+                                value={stat.sublabel || ''}
+                                onChange={(e) => updateSingleStat('sublabel', e.target.value)}
+                                placeholder="e.g. Global Reach"
+                                className="w-full bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs font-mono text-gray-900 focus:outline-none focus:border-gray-900"
+                              />
+                            </div>
+
+                            {/* Wave Fill Level */}
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-mono font-bold uppercase text-gray-700">Wave Height</label>
+                                <span className="text-[10px] font-mono font-bold text-[#007A93]">{stat.fillPercentage ?? 70}%</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="20"
+                                max="90"
+                                value={stat.fillPercentage ?? 70}
+                                onChange={(e) => updateSingleStat('fillPercentage', Number(e.target.value))}
+                                className="w-full accent-[#007A93] cursor-pointer"
+                              />
+                            </div>
+
+                            {/* Theme Color Selector */}
+                            <div className="sm:col-span-2 lg:col-span-4 border-t border-gray-100 pt-2 flex flex-wrap items-center gap-3">
+                              <span className="text-[10px] font-mono font-bold uppercase text-gray-500 flex items-center gap-1">
+                                <Palette className="w-3 h-3" /> Color:
+                              </span>
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {PRESET_COLORS.map(c => (
+                                  <button
+                                    key={c.hex}
+                                    type="button"
+                                    onClick={() => updateSingleStat('color', c.hex)}
+                                    className={`w-6 h-6 rounded-full border transition-all cursor-pointer ${
+                                      (stat.color || '#7c3aed').toLowerCase() === c.hex.toLowerCase()
+                                        ? 'scale-110 ring-2 ring-gray-900 ring-offset-1 border-white'
+                                        : 'border-transparent opacity-80 hover:opacity-100'
+                                    }`}
+                                    style={{ backgroundColor: c.hex }}
+                                    title={c.name}
+                                  />
+                                ))}
+                                <input
+                                  type="text"
+                                  value={stat.color || '#7c3aed'}
+                                  onChange={(e) => updateSingleStat('color', e.target.value)}
+                                  placeholder="#7c3aed"
+                                  className="w-20 bg-gray-50 border border-gray-300 px-2 py-0.5 text-[10px] font-mono uppercase text-gray-700 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Reorder and Delete Actions */}
+                          <div className="flex lg:flex-col items-center gap-1 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100 w-full lg:w-auto justify-end">
+                            <button
+                              type="button"
+                              disabled={sIdx === 0}
+                              onClick={() => moveStat('up')}
+                              className="p-1.5 text-gray-400 hover:text-gray-900 disabled:opacity-30 rounded hover:bg-gray-100 transition-colors"
+                              title="Move Up"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={sIdx === arr.length - 1}
+                              onClick={() => moveStat('down')}
+                              className="p-1.5 text-gray-400 hover:text-gray-900 disabled:opacity-30 rounded hover:bg-gray-100 transition-colors"
+                              title="Move Down"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={deleteStat}
+                              className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
+                              title="Delete Stat"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -1720,41 +1869,45 @@ export default function AdminPanel({
                   </div>
 
                   {/* Category - dynamic per service */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className={`grid grid-cols-1 ${isCategoryDisabled ? '' : 'md:grid-cols-2'} gap-6`}>
                     {/* Title - hidden for no-text services */}
                     {!isNoTextService && (
-                      <div>
+                      <div className={isCategoryDisabled ? 'col-span-1' : ''}>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Project / Asset Title *</label>
                         <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required placeholder="e.g. Model Autumn Coat Shoot" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
                       </div>
                     )}
 
                     {/* Category selector */}
-                    <div>
-                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Category *</label>
-                      <div className="flex flex-col gap-2">
-                        <select 
-                          value={newCategory} 
-                          onChange={(e) => setNewCategory(e.target.value)} 
-                          className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer"
-                        >
-                          {Array.from(new Set([...(ADMIN_CATEGORIES[selectedServiceId] || []), ...getExistingCategories()])).map((cat, idx) => (
-                            <option key={idx} value={cat}>{cat}</option>
-                          ))}
-                          <option value="Custom">+ Create New Category...</option>
-                        </select>
-                        {newCategory === 'Custom' && (
-                          <input 
-                            type="text" 
-                            value={newCustomCategory} 
-                            onChange={(e) => setNewCustomCategory(e.target.value)} 
-                            required 
-                            placeholder="New category name" 
-                            className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" 
-                          />
-                        )}
+                    {!isCategoryDisabled && (
+                      <div>
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Category *</label>
+                        <div className="flex flex-col gap-2">
+                          <select 
+                            value={newCategory} 
+                            onChange={(e) => setNewCategory(e.target.value)} 
+                            className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all cursor-pointer"
+                          >
+                            {Array.from(new Set([...(ADMIN_CATEGORIES[selectedServiceId] || []), ...getExistingCategories()])).map((cat, idx) => (
+                              <option key={idx} value={cat}>{cat}</option>
+                            ))}
+                            <option value="Custom">+ Create New Category...</option>
+                          </select>
+                          {newCategory === 'Custom' && (
+                            <input 
+                              type="text" 
+                              value={newCustomCategory} 
+                              onChange={(e) => setNewCustomCategory(e.target.value)} 
+                              required 
+                              placeholder="New category name" 
+                              className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" 
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+
 
                     {/* Sub-sub category (E-Invitation) */}
                     {showSubSubCategory && (
@@ -1850,8 +2003,16 @@ export default function AdminPanel({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">Meta / Specs (Optional)</label>
-                      <input type="text" value={newMeta} onChange={(e) => setNewMeta(e.target.value)} placeholder="e.g., Format: 2K Video // 24 FPS" className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" />
+                      <label className="block text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2 font-bold">
+                        {selectedServiceId === 'ai-video-shoot' ? 'Industry / Type (e.g. Interior Design)' : 'Meta / Specs (Optional)'}
+                      </label>
+                      <input 
+                        type="text" 
+                        value={newMeta} 
+                        onChange={(e) => setNewMeta(e.target.value)} 
+                        placeholder={selectedServiceId === 'ai-video-shoot' ? 'e.g., Interior Design, Product Shoot, Footwear' : 'e.g., Format: 2K Video // 24 FPS'} 
+                        className="w-full bg-gray-50 border border-gray-300 rounded-none px-4 py-3 text-sm focus:border-white focus:outline-none text-gray-900 font-mono transition-all placeholder:text-gray-400" 
+                      />
                     </div>
                   </div>
 
@@ -2194,8 +2355,8 @@ export default function AdminPanel({
                   {manageWorksOpen && (
                     <div className="animate-fadeIn">
 
-                  {/* #12 — Category Cover Images for Shoot Services */}
-                  {services.filter(s => s.id === 'ai-photo-shoot' || s.id === 'ai-video-shoot').map(s => (
+                  {/* #12 — Category Cover Images for Photo Shoot Service */}
+                  {services.filter(s => s.id === 'ai-photo-shoot').map(s => (
                     <div key={`cover-${s.id}`} className="mb-8 bg-gray-50 border border-gray-200 p-6 rounded-none">
                       <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">{s.name} — Category Cover Images</h4>
                       <p className="text-xs text-gray-500 mb-4 font-sans">Set a custom cover image for each shoot category. This overrides the auto-detected first item.</p>
@@ -2311,189 +2472,311 @@ export default function AdminPanel({
 
                           {!isServiceCollapsed && (
                             <div className="space-y-6 mt-4">
-                            {/* Group subsections by category */}
-                            {(() => {
-                              const grouped = s.subsections.reduce((acc, sub, idx) => {
-                                const cat = sub.subCategory || 'General';
-                                if (!acc[cat]) acc[cat] = [];
-                                acc[cat].push({ sub, idx });
-                                return acc;
-                              }, {} as Record<string, { sub: any, idx: number }[]>);
-                              
-                              const cats = Object.keys(grouped);
-                              const order = s.categoryOrder || [];
-                              if (order.length > 0) {
-                                cats.sort((a, b) => {
-                                  const indexA = order.indexOf(a);
-                                  const indexB = order.indexOf(b);
-                                  if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                                  if (indexA !== -1) return -1;
-                                  if (indexB !== -1) return 1;
-                                  return 0;
-                                });
-                              }
+                            {s.id !== 'ai-photo-shoot' ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {s.subsections.map((sub, idx) => (
+                                  <motion.div 
+                                    layout
+                                    key={sub.id || sub.title + idx} 
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.effectAllowed = "move";
+                                      setDraggedItemIndex(idx);
+                                      setDraggedItemService(s.id);
+                                      setPreviewServices(services);
+                                    }}
+                                    onDragEnter={(e) => {
+                                      e.preventDefault();
+                                      if (draggedItemService !== s.id || draggedItemIndex === null || draggedItemIndex === idx) return;
 
-                              return cats.map((category, catIdx) => {
-                                const items = grouped[category];
-                                const isCollapsed = collapsedCategories[`${s.id}-${category}`];
-                                return (
-                                  <div key={category} className="space-y-3">
-                                    {/* Category Header */}
-                                    <div 
-                                      className="flex justify-between items-center cursor-pointer bg-gray-100 hover:bg-gray-200 transition-colors p-3 border-l-4 border-[#007A93]"
-                                      onClick={() => setCollapsedCategories(prev => ({ ...prev, [`${s.id}-${category}`]: !isCollapsed }))}
-                                    >
-                                      <h5 className="font-sans text-xs font-bold text-gray-700 uppercase tracking-widest">{category} <span className="text-gray-400 font-normal ml-1">({items.length})</span></h5>
-                                      <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1 bg-white border border-gray-200 p-0.5 rounded-sm shadow-sm" onClick={(e) => e.stopPropagation()}>
-                                          <button 
-                                            disabled={catIdx === 0}
-                                            onClick={(e) => handleMoveCategory(e, s.id, category, 'up')}
-                                            className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
-                                            title="Move Category Up"
-                                          >
-                                            <ChevronUp className="w-3.5 h-3.5 text-gray-600" />
-                                          </button>
-                                          <div className="w-[1px] h-3 bg-gray-200"></div>
-                                          <button 
-                                            disabled={catIdx === cats.length - 1}
-                                            onClick={(e) => handleMoveCategory(e, s.id, category, 'down')}
-                                            className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === cats.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
-                                            title="Move Category Down"
-                                          >
-                                            <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
-                                          </button>
+                                      setPreviewServices(prev => {
+                                        const nextServices = prev ? [...prev] : [...services];
+                                        const sIndex = nextServices.findIndex(sv => sv.id === s.id);
+                                        if (sIndex === -1) return nextServices;
+                                    
+                                        const sCopy = { ...nextServices[sIndex] };
+                                        const subs = [...(sCopy.subsections || [])];
+                                        
+                                        const [removed] = subs.splice(draggedItemIndex, 1);
+                                        subs.splice(idx, 0, removed);
+                                        
+                                        sCopy.subsections = subs;
+                                        nextServices[sIndex] = sCopy;
+                                        return nextServices;
+                                      });
+                                      setDraggedItemIndex(idx);
+                                    }}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = "move";
+                                    }}
+                                    onDrop={async (e) => {
+                                      e.preventDefault();
+                                      if (draggedItemService !== s.id || draggedItemIndex === null) return;
+                                      if (previewServices) {
+                                        await updateServices(previewServices);
+                                      }
+                                      setDraggedItemIndex(null);
+                                      setDraggedItemService(null);
+                                      setPreviewServices(null);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedItemIndex(null);
+                                      setDraggedItemService(null);
+                                      setPreviewServices(null);
+                                    }}
+                                    className={`bg-gray-50 border border-gray-200 p-4 rounded-none flex justify-between gap-4 items-start ${draggedItemIndex === idx ? 'opacity-30 border-dashed border-[#007A93]' : 'cursor-move hover:border-gray-400 hover:shadow-sm transition-all'}`}
+                                  >
+                                    <div className="flex gap-3 items-start overflow-hidden pointer-events-none">
+                                      <div className="text-gray-300 mt-3 mr-1 shrink-0">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
+                                      </div>
+                                      <img
+                                        src={sub.visualUrl}
+                                        alt={sub.title}
+                                        className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
+                                        style={{ objectPosition: sub.imagePosition || (s.id === 'website-design' ? 'top' : 'center') }}
+                                      />
+                                      <div className="overflow-hidden">
+                                        <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
+                                        {sub.meta && (
+                                          <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
+                                            Artifact / Tag: <span className="text-gray-600 font-semibold">{sub.meta}</span>
+                                          </span>
+                                        )}
+                                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                          <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
+                                            {sub.visualType || 'image'}
+                                          </span>
+                                          {sub.imagePosition && (
+                                            <span className="font-mono text-[8px] text-gray-700 bg-gray-200 border border-gray-300 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                              Crop: {sub.imagePosition}
+                                            </span>
+                                          )}
+                                          {sub.videoUrl && (
+                                            <span className="font-mono text-[8px] text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                              + Video
+                                            </span>
+                                          )}
+                                          {sub.pdfUrl && (
+                                            <span className="font-mono text-[8px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                              + PDF
+                                            </span>
+                                          )}
+                                          {sub.websiteUrl && (
+                                            <span className="font-mono text-[8px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                              + Web
+                                            </span>
+                                          )}
                                         </div>
-                                        <span className="text-gray-400 font-mono text-[10px] w-14 text-right">{isCollapsed ? 'SHOW ▼' : 'HIDE ▲'}</span>
                                       </div>
                                     </div>
 
-                                  {/* Items List */}
-                                  {!isCollapsed && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      {items.map(({ sub, idx }) => (
-                                        <motion.div 
-                                          layout
-                                          key={sub.title + idx} 
-                                          draggable
-                                          onDragStart={(e) => {
-                                            e.dataTransfer.effectAllowed = "move";
-                                            setDraggedItemIndex(idx);
-                                            setDraggedItemService(s.id);
-                                            setPreviewServices(services);
-                                          }}
-                                          onDragEnter={(e) => {
-                                            e.preventDefault();
-                                            if (draggedItemService !== s.id || draggedItemIndex === null || draggedItemIndex === idx) return;
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditSubsection(sub, s.id)}
+                                        className="text-gray-400 hover:text-blue-500 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                        title="Edit subsection"
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveSubsection(s.id, idx)}
+                                        className="text-gray-400 hover:text-red-400 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                        title="Remove subsection"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            ) : (
+                              /* Group subsections by category */
+                              (() => {
+                                const grouped = s.subsections.reduce((acc, sub, idx) => {
+                                  const cat = sub.subCategory || 'General';
+                                  if (!acc[cat]) acc[cat] = [];
+                                  acc[cat].push({ sub, idx });
+                                  return acc;
+                                }, {} as Record<string, { sub: any, idx: number }[]>);
+                                
+                                const cats = Object.keys(grouped);
+                                const order = s.categoryOrder || [];
+                                if (order.length > 0) {
+                                  cats.sort((a, b) => {
+                                    const indexA = order.indexOf(a);
+                                    const indexB = order.indexOf(b);
+                                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                    if (indexA !== -1) return -1;
+                                    if (indexB !== -1) return 1;
+                                    return 0;
+                                  });
+                                }
 
-                                            setPreviewServices(prev => {
-                                              const nextServices = prev ? [...prev] : [...services];
-                                              const sIndex = nextServices.findIndex(sv => sv.id === s.id);
-                                              if (sIndex === -1) return nextServices;
-                                          
-                                              const sCopy = { ...nextServices[sIndex] };
-                                              const subs = [...(sCopy.subsections || [])];
-                                              
-                                              const [removed] = subs.splice(draggedItemIndex, 1);
-                                              removed.subCategory = category === 'General' ? '' : category;
-                                              subs.splice(idx, 0, removed);
-                                              
-                                              sCopy.subsections = subs;
-                                              nextServices[sIndex] = sCopy;
-                                              return nextServices;
-                                            });
-                                            setDraggedItemIndex(idx);
-                                          }}
-                                          onDragOver={(e) => {
-                                            e.preventDefault();
-                                            e.dataTransfer.dropEffect = "move";
-                                          }}
-                                          onDrop={async (e) => {
-                                            e.preventDefault();
-                                            if (draggedItemService !== s.id || draggedItemIndex === null) return;
-                                            if (previewServices) {
-                                              await updateServices(previewServices);
-                                            }
-                                            setDraggedItemIndex(null);
-                                            setDraggedItemService(null);
-                                            setPreviewServices(null);
-                                          }}
-                                          onDragEnd={() => {
-                                            setDraggedItemIndex(null);
-                                            setDraggedItemService(null);
-                                            setPreviewServices(null);
-                                          }}
-                                          className={`bg-gray-50 border border-gray-200 p-4 rounded-none flex justify-between gap-4 items-start ${draggedItemIndex === idx ? 'opacity-30 border-dashed border-[#007A93]' : 'cursor-move hover:border-gray-400 hover:shadow-sm transition-all'}`}
-                                        >
-                                          <div className="flex gap-3 items-start overflow-hidden pointer-events-none">
-                                            <div className="text-gray-300 mt-3 mr-1 shrink-0">
-                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
-                                            </div>
-                                            <img
-                                              src={sub.visualUrl}
-                                              alt={sub.title}
-                                              className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
-                                              style={{ objectPosition: sub.imagePosition || (s.id === 'website-design' ? 'top' : 'center') }}
-                                            />
-                                            <div className="overflow-hidden">
-                                              <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
-                                              <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
-                                                Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
-                                              </span>
-                                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                                                <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
-                                                  {sub.visualType || 'image'}
+                                return cats.map((category, catIdx) => {
+                                  const items = grouped[category];
+                                  const isCollapsed = collapsedCategories[`${s.id}-${category}`];
+                                  return (
+                                    <div key={category} className="space-y-3">
+                                      {/* Category Header */}
+                                      <div 
+                                        className="flex justify-between items-center cursor-pointer bg-gray-100 hover:bg-gray-200 transition-colors p-3 border-l-4 border-[#007A93]"
+                                        onClick={() => setCollapsedCategories(prev => ({ ...prev, [`${s.id}-${category}`]: !isCollapsed }))}
+                                      >
+                                        <h5 className="font-sans text-xs font-bold text-gray-700 uppercase tracking-widest">{category} <span className="text-gray-400 font-normal ml-1">({items.length})</span></h5>
+                                        <div className="flex items-center gap-3">
+                                          <div className="flex items-center gap-1 bg-white border border-gray-200 p-0.5 rounded-sm shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                            <button 
+                                              disabled={catIdx === 0}
+                                              onClick={(e) => handleMoveCategory(e, s.id, category, 'up')}
+                                              className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                                              title="Move Category Up"
+                                            >
+                                              <ChevronUp className="w-3.5 h-3.5 text-gray-600" />
+                                            </button>
+                                            <div className="w-[1px] h-3 bg-gray-200"></div>
+                                            <button 
+                                              disabled={catIdx === cats.length - 1}
+                                              onClick={(e) => handleMoveCategory(e, s.id, category, 'down')}
+                                              className={`p-1 hover:bg-gray-100 transition-colors ${catIdx === cats.length - 1 ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                                              title="Move Category Down"
+                                            >
+                                              <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
+                                            </button>
+                                          </div>
+                                          <span className="text-gray-400 font-mono text-[10px] w-14 text-right">{isCollapsed ? 'SHOW ▼' : 'HIDE ▲'}</span>
+                                        </div>
+                                      </div>
+
+                                    {/* Items List */}
+                                    {!isCollapsed && (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {items.map(({ sub, idx }) => (
+                                          <motion.div 
+                                            layout
+                                            key={sub.title + idx} 
+                                            draggable
+                                            onDragStart={(e) => {
+                                              e.dataTransfer.effectAllowed = "move";
+                                              setDraggedItemIndex(idx);
+                                              setDraggedItemService(s.id);
+                                              setPreviewServices(services);
+                                            }}
+                                            onDragEnter={(e) => {
+                                              e.preventDefault();
+                                              if (draggedItemService !== s.id || draggedItemIndex === null || draggedItemIndex === idx) return;
+
+                                              setPreviewServices(prev => {
+                                                const nextServices = prev ? [...prev] : [...services];
+                                                const sIndex = nextServices.findIndex(sv => sv.id === s.id);
+                                                if (sIndex === -1) return nextServices;
+                                            
+                                                const sCopy = { ...nextServices[sIndex] };
+                                                const subs = [...(sCopy.subsections || [])];
+                                                
+                                                const [removed] = subs.splice(draggedItemIndex, 1);
+                                                removed.subCategory = category === 'General' ? '' : category;
+                                                subs.splice(idx, 0, removed);
+                                                
+                                                sCopy.subsections = subs;
+                                                nextServices[sIndex] = sCopy;
+                                                return nextServices;
+                                              });
+                                              setDraggedItemIndex(idx);
+                                            }}
+                                            onDragOver={(e) => {
+                                              e.preventDefault();
+                                              e.dataTransfer.dropEffect = "move";
+                                            }}
+                                            onDrop={async (e) => {
+                                              e.preventDefault();
+                                              if (draggedItemService !== s.id || draggedItemIndex === null) return;
+                                              if (previewServices) {
+                                                await updateServices(previewServices);
+                                              }
+                                              setDraggedItemIndex(null);
+                                              setDraggedItemService(null);
+                                              setPreviewServices(null);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedItemIndex(null);
+                                              setDraggedItemService(null);
+                                              setPreviewServices(null);
+                                            }}
+                                            className={`bg-gray-50 border border-gray-200 p-4 rounded-none flex justify-between gap-4 items-start ${draggedItemIndex === idx ? 'opacity-30 border-dashed border-[#007A93]' : 'cursor-move hover:border-gray-400 hover:shadow-sm transition-all'}`}
+                                          >
+                                            <div className="flex gap-3 items-start overflow-hidden pointer-events-none">
+                                              <div className="text-gray-300 mt-3 mr-1 shrink-0">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
+                                              </div>
+                                              <img
+                                                src={sub.visualUrl}
+                                                alt={sub.title}
+                                                className="w-14 h-14 object-cover rounded-none bg-gray-200 shrink-0"
+                                                style={{ objectPosition: sub.imagePosition || (s.id === 'website-design' ? 'top' : 'center') }}
+                                              />
+                                              <div className="overflow-hidden">
+                                                <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
+                                                <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
+                                                  Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
                                                 </span>
-                                                {sub.imagePosition && (
-                                                  <span className="font-mono text-[8px] text-gray-700 bg-gray-200 border border-gray-300 px-1 py-0.5 tracking-wider uppercase font-bold">
-                                                    Crop: {sub.imagePosition}
+                                                <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                                  <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
+                                                    {sub.visualType || 'image'}
                                                   </span>
-                                                )}
-                                                {sub.videoUrl && (
-                                                  <span className="font-mono text-[8px] text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.5 tracking-wider uppercase font-bold">
-                                                    + Video
-                                                  </span>
-                                                )}
-                                                {sub.pdfUrl && (
-                                                  <span className="font-mono text-[8px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 tracking-wider uppercase font-bold">
-                                                    + PDF
-                                                  </span>
-                                                )}
-                                                {sub.websiteUrl && (
-                                                  <span className="font-mono text-[8px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 tracking-wider uppercase font-bold">
-                                                    + Web
-                                                  </span>
-                                                )}
+                                                  {sub.imagePosition && (
+                                                    <span className="font-mono text-[8px] text-gray-700 bg-gray-200 border border-gray-300 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                      Crop: {sub.imagePosition}
+                                                    </span>
+                                                  )}
+                                                  {sub.videoUrl && (
+                                                    <span className="font-mono text-[8px] text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                      + Video
+                                                    </span>
+                                                  )}
+                                                  {sub.pdfUrl && (
+                                                    <span className="font-mono text-[8px] text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                      + PDF
+                                                    </span>
+                                                  )}
+                                                  {sub.websiteUrl && (
+                                                    <span className="font-mono text-[8px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                      + Web
+                                                    </span>
+                                                  )}
+                                                </div>
                                               </div>
                                             </div>
-                                          </div>
 
-                                          <div className="flex items-center gap-1">
-                                            <button
-                                              type="button"
-                                              onClick={() => handleEditSubsection(sub, s.id)}
-                                              className="text-gray-400 hover:text-blue-500 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
-                                              title="Edit subsection"
-                                            >
-                                              <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveSubsection(s.id, idx)}
-                                              className="text-gray-400 hover:text-red-400 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
-                                              title="Remove subsection"
-                                            >
-                                              <Trash2 className="w-4 h-4" />
-                                            </button>
-                                          </div>
-                                        </motion.div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })
-                            })()}
+                                            <div className="flex items-center gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => handleEditSubsection(sub, s.id)}
+                                                className="text-gray-400 hover:text-blue-500 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                                title="Edit subsection"
+                                              >
+                                                <Edit className="w-4 h-4" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSubsection(s.id, idx)}
+                                                className="text-gray-400 hover:text-red-400 p-2 rounded-none hover:bg-gray-100 cursor-pointer transition-colors"
+                                                title="Remove subsection"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          </motion.div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              });
+                            })())}
                           </div>
                           )}
                         </div>
