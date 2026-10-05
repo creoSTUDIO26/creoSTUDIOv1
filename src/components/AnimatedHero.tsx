@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import HeroSpatial3D from './HeroSpatial3D';
 
 interface AnimatedHeroProps {
   slides: string[];
@@ -117,6 +118,11 @@ export default function AnimatedHero({ slides }: AnimatedHeroProps) {
             transition={{ duration: 0.8 }}
             className="absolute inset-0 w-full h-full flex flex-col items-center justify-center z-20 pointer-events-none"
           >
+            {/* 3D Spatial Interactive Geometric Centerpiece */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <HeroSpatial3D className="w-[320px] h-[320px] sm:w-[480px] sm:h-[480px] lg:w-[620px] lg:h-[620px] max-w-[85vw] max-h-[85vh]" />
+            </div>
+
             {/* The Huge Logos Container */}
             <div className="relative w-full h-full max-w-[1800px] mx-auto px-6 sm:px-12 lg:px-24">
               

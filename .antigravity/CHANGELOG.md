@@ -1,5 +1,29 @@
 # CHANGELOG.md
 
+## [2026-10-05 17:37] — Aligned Admin Panel with Photo Shoot category and work management rules
+- Action:
+  - In `src/components/AdminPanel.tsx`:
+    - Expanded standard Photo Shoot categories in `ADMIN_CATEGORIES['ai-photo-shoot']` to include `Clothing Shoot`, `Footwear Shoot`, `Lifestyle Shoot`, `Marble Home Decore Shoot`, `Jewelry Shoot`, and `Product Shoot`.
+    - Enhanced `getExistingCategories()` to dynamically discover all custom and active categories from subsections and `categoryCoverImages`.
+    - Upgraded Category Cover Images manager to iterate over all active and custom categories, allowing custom cover image uploads for any category.
+    - Enhanced subsection item cards in the manager view with clear badges for Brand name, 1:1 Comparison mode, original input counts, and variant counts.
+- Reason: User requested proper changes and alignment of the Admin Panel with recent structural and photoshoot flow updates.
+- Type: feature | UI | refactor
+
+## [2026-10-05 17:28] — Direct shooting photo cards grid on Photo Shoot category selection
+- Action:
+  - In `src/components/ServiceInnerView.tsx`: configured `ai-photo-shoot` to directly render `renderShootGallery()` when a category is selected (e.g., clicking *Clothing Shoot* immediately opens the grid of all individual photoshoot visual cards, bypassing intermediary brand cards).
+- Reason: User requested that clicking a photoshoot category (Img 1) directly opens all shooting cards (Img 3) instead of intermediary brand cards (Img 2).
+- Type: feature | UI | UX
+
+## [2026-10-05 17:18] — Integrated lightweight 3D spatial depth and interactive hero emblem (local)
+- Action:
+  - Created `src/components/SpatialCard3D.tsx`: hardware-accelerated CSS 3D perspective tilt and dynamic specular glare lighting on hover with zero runtime dependency overhead and safe mobile touch behavior.
+  - Created `src/components/HeroSpatial3D.tsx`: interactive 3D geometric emblem in the hero section that responds smoothly to cursor position and pauses via `IntersectionObserver` when scrolled off-screen.
+  - In `src/components/ChapterServices.tsx` and `src/components/ServiceInnerView.tsx`: wrapped service cards, editorial cards, and brand building cards with `SpatialCard3D`.
+- Reason: User requested applying the 3D web experience enhancements locally without pushing to GitHub.
+- Type: feature | 3D | UI
+
 ## [2026-10-05 17:05] — Fixed header logo overlap on Project Detail View
 - Action:
   - In `src/components/ProjectDetailView.tsx`: adjusted top padding from `py-8 sm:py-10` to `pt-24 pb-8 sm:pt-28 sm:pb-10` with a clean bottom-bordered navigation wrapper, ensuring the "Back to Case Studies" button and editorial title clear the fixed top navigation bar and `creoSTUDIO` logo.

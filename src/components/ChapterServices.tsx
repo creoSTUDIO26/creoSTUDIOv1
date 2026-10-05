@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUpRight } from 'lucide-react';
 import { ServiceDetail } from '../types';
+import SpatialCard3D from './SpatialCard3D';
 
 interface ChapterServicesProps {
   services: ServiceDetail[];
@@ -55,14 +56,20 @@ export default function ChapterServices({ services, onSelectService }: ChapterSe
             const worksCount = s.subsections?.length || 0;
 
             return (
-              <article
+              <SpatialCard3D
                 key={s.id}
-                onClick={() => {
-                  onSelectService(s.id);
-                  window.scrollTo({ top: 0, behavior: 'instant' });
-                }}
-                className="group relative bg-[#1e1c19] hover:bg-[#161412] p-7 sm:p-8 md:p-9 min-h-[460px] sm:min-h-[500px] lg:min-h-[520px] flex flex-col justify-between overflow-hidden cursor-pointer select-none transition-colors duration-500"
+                maxTilt={6}
+                glareOpacity={0.12}
+                scaleOnHover={1.015}
+                className="w-full h-full"
               >
+                <article
+                  onClick={() => {
+                    onSelectService(s.id);
+                    window.scrollTo({ top: 0, behavior: 'instant' });
+                  }}
+                  className="group relative bg-[#1e1c19] hover:bg-[#161412] p-7 sm:p-8 md:p-9 min-h-[460px] sm:min-h-[500px] lg:min-h-[520px] flex flex-col justify-between overflow-hidden cursor-pointer select-none transition-colors duration-500 h-full"
+                >
                 {/* CURTAIN REVEAL IMAGE ON HOVER */}
                 <div
                   className="absolute inset-0 z-0 overflow-hidden pointer-events-none transition-[clip-path] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] [clip-path:inset(0_0_100%_0)] group-hover:[clip-path:inset(0_0_0_0)]"
@@ -118,8 +125,9 @@ export default function ChapterServices({ services, onSelectService }: ChapterSe
                   </div>
                 </div>
               </article>
-            );
-          })}
+            </SpatialCard3D>
+          );
+        })}
         </div>
       </div>
     </section>

@@ -22,6 +22,8 @@ THE_WEBSITE/
 │   │   ├── ReelSection.tsx # Video reel showcases
 │   │   ├── ServiceInnerView.tsx # Detailed view of individual services and cards
 │   │   ├── WaveStatCircle.tsx   # Canvas-powered animated liquid sine wave circular stat widget
+│   │   ├── SpatialCard3D.tsx    # Hardware-accelerated 3D perspective tilt & specular lighting wrapper
+│   │   ├── HeroSpatial3D.tsx    # Interactive 3D spatial geometric emblem with IntersectionObserver
 │   │   └── ...
 │   ├── lib/
 │   │   └── supabase.ts     # Supabase client initialization and helpers

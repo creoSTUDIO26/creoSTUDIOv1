@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ByTheNumbersStat } from '../types';
 
 interface WaveStatCircleProps {
+  key?: React.Key;
   stat: ByTheNumbersStat;
   className?: string;
   size?: 'sm' | 'md' | 'lg';

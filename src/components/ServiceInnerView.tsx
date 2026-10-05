@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ServiceDetail, ServiceSubsection, ClientProfile } from '../types';
 import { ArrowLeft, Sparkles, Plus, Image, ArrowUpRight, Check, Sliders, Play, Cpu, Film, Compass, Globe, Upload, Loader, AlertCircle, X, ChevronLeft, ChevronRight, Instagram, ExternalLink, FileText, Download, Monitor, Tablet, Smartphone, Lock, RefreshCw } from 'lucide-react';
 import { getThumbnailUrl } from '../lib/supabase';
+import SpatialCard3D from './SpatialCard3D';
 
 interface ServiceInnerViewProps {
   key?: string;
@@ -82,7 +83,10 @@ export default function ServiceInnerView({
       items = items.filter(sub => (sub.subCategory || 'General') === selectedCategory);
     }
     if (isShootService && activeBrand) {
-      items = items.filter(sub => (sub.brandName || 'Other') === activeBrand);
+      items = items.filter(sub => {
+        const bName = sub.brandName?.trim() || sub.title?.trim() || 'Other';
+        return bName.toLowerCase() === activeBrand.toLowerCase();
+      });
     }
     return items;
   })();
@@ -1088,69 +1092,76 @@ export default function ServiceInnerView({
         const directLink = getDirectLink(sub);
 
         return (
-          <div
+          <SpatialCard3D
             key={idx}
-            onClick={() => openItem(sub)}
-            className="group cursor-pointer flex flex-col transition-all duration-300"
+            maxTilt={6}
+            glareOpacity={0.12}
+            scaleOnHover={1.015}
+            className="w-full h-full"
           >
-            {/* Top: Screenshot / Video container */}
-            <div className="relative w-full aspect-[4/3] bg-[#eaeaea] overflow-hidden border border-black/5 group-hover:border-black/20 transition-all duration-500 shadow-sm group-hover:shadow-md">
-              {isVideoUrl(sub.visualUrl) ? (
-                <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
-              ) : (
-                <img
-                  src={getThumbnailUrl(sub.visualUrl, 800, 80)}
-                  alt={sub.brandName || sub.title}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                  style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
-                />
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
-                {directLink && (
-                  <span className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 px-3 py-1.5 bg-black/90 text-white font-mono text-[9px] uppercase tracking-widest font-bold flex items-center gap-1.5 shadow-lg">
-                    <span>Visit Link</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-                  </span>
+            <div
+              onClick={() => openItem(sub)}
+              className="group cursor-pointer flex flex-col transition-all duration-300 h-full"
+            >
+              {/* Top: Screenshot / Video container */}
+              <div className="relative w-full aspect-[4/3] bg-[#eaeaea] overflow-hidden border border-black/5 group-hover:border-black/20 transition-all duration-500 shadow-sm group-hover:shadow-md">
+                {isVideoUrl(sub.visualUrl) ? (
+                  <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+                ) : (
+                  <img
+                    src={getThumbnailUrl(sub.visualUrl, 800, 80)}
+                    alt={sub.brandName || sub.title}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                    style={{ objectPosition: sub.imagePosition || (service.id === 'website-design' ? 'top' : 'center') }}
+                  />
                 )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+                  {directLink && (
+                    <span className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 px-3 py-1.5 bg-black/90 text-white font-mono text-[9px] uppercase tracking-widest font-bold flex items-center gap-1.5 shadow-lg">
+                      <span>Visit Link</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+                    </span>
+                  )}
+                </div>
+                
+                {/* Badges for media availability */}
+                <div className="absolute top-3 left-3 flex flex-wrap gap-1 z-10">
+                  {sub.videoUrl && (
+                    <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <Play className="w-2 h-2 text-[#007A93]" /> Video
+                    </span>
+                  )}
+                  {sub.pdfUrl && (
+                    <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <FileText className="w-2 h-2 text-amber-400" /> PDF
+                    </span>
+                  )}
+                  {sub.websiteUrl && (
+                    <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                      <Globe className="w-2 h-2 text-emerald-400" /> Live
+                    </span>
+                  )}
+                </div>
               </div>
-              
-              {/* Badges for media availability */}
-              <div className="absolute top-3 left-3 flex flex-wrap gap-1 z-10">
-                {sub.videoUrl && (
-                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                    <Play className="w-2 h-2 text-[#007A93]" /> Video
-                  </span>
-                )}
-                {sub.pdfUrl && (
-                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                    <FileText className="w-2 h-2 text-amber-400" /> PDF
-                  </span>
-                )}
-                {sub.websiteUrl && (
-                  <span className="bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                    <Globe className="w-2 h-2 text-emerald-400" /> Live
-                  </span>
-                )}
-              </div>
-            </div>
 
-            {/* Bottom: Number + Category/Year + Title matching Image 2 */}
-            <div className="mt-4 flex items-start">
-              <span className="font-serif text-3xl sm:text-4xl lg:text-5xl text-black font-normal leading-none mr-3 sm:mr-4 shrink-0 select-none tracking-tight">
-                {String(idx + 1).padStart(2, '0')}.
-              </span>
-              <div className="overflow-hidden min-w-0 pt-0.5 flex-1">
-                <span className="font-mono text-[9px] sm:text-[10px] text-black/50 uppercase tracking-widest block font-medium">
-                  {sub.meta ? sub.meta.toUpperCase() : service.name.toUpperCase()}
+              {/* Bottom: Number + Category/Year + Title matching Image 2 */}
+              <div className="mt-4 flex items-start">
+                <span className="font-serif text-3xl sm:text-4xl lg:text-5xl text-black font-normal leading-none mr-3 sm:mr-4 shrink-0 select-none tracking-tight">
+                  {String(idx + 1).padStart(2, '0')}.
                 </span>
-                <h3 className="font-sans text-sm sm:text-base font-bold text-black tracking-tight mt-0.5 truncate group-hover:text-[#007A93] transition-colors flex items-center justify-between gap-1">
-                  <span className="truncate">{sub.brandName || sub.title}</span>
-                  {directLink && <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />}
-                </h3>
+                <div className="overflow-hidden min-w-0 pt-0.5 flex-1">
+                  <span className="font-mono text-[9px] sm:text-[10px] text-black/50 uppercase tracking-widest block font-medium">
+                    {sub.meta ? sub.meta.toUpperCase() : service.name.toUpperCase()}
+                  </span>
+                  <h3 className="font-sans text-sm sm:text-base font-bold text-black tracking-tight mt-0.5 truncate group-hover:text-[#007A93] transition-colors flex items-center justify-between gap-1">
+                    <span className="truncate">{sub.brandName || sub.title}</span>
+                    {directLink && <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />}
+                  </h3>
+                </div>
               </div>
             </div>
-          </div>
+          </SpatialCard3D>
         );
       })}
     </div>
@@ -1158,56 +1169,63 @@ export default function ServiceInnerView({
 
   const renderWebsiteDesignCards = renderEditorialCards;
 
-  // Brand Building cards: compact grid so full card fits neatly into viewport
+  // Brand Building cards: compact grid with 3D depth and sheen
   const renderBrandBuildingCards = () => (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
       {filteredSubsections.map((sub, idx) => (
-        <div
+        <SpatialCard3D
           key={idx}
-          onClick={() => openItem(sub)}
-          className="group cursor-pointer bg-white border border-black/10 hover:border-black/30 rounded-none overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col"
+          maxTilt={7}
+          glareOpacity={0.15}
+          scaleOnHover={1.02}
+          className="w-full h-full"
         >
-          <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-[#f4f4f4] relative flex items-center justify-center p-2.5">
-            <img
-              src={getThumbnailUrl(sub.visualUrl, 500, 75)}
-              alt={sub.brandName || sub.title}
-              loading="lazy"
-              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-              style={{ objectPosition: sub.imagePosition || 'center' }}
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-            {sub.pdfUrl && (
-              <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-1.5 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
-                <FileText className="w-2 h-2 text-amber-400" /> Brand Kit
-              </span>
-            )}
-          </div>
-          <div className="p-3 sm:p-3.5 flex flex-col justify-between flex-1 border-t border-black/5 bg-white">
-            <div className="flex items-center justify-between gap-1 mb-1">
-              <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-tight text-black truncate">
-                {sub.brandName || sub.title}
-              </h4>
-              <ArrowUpRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+          <div
+            onClick={() => openItem(sub)}
+            className="group cursor-pointer bg-white border border-black/10 hover:border-black/30 rounded-none overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full"
+          >
+            <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-[#f4f4f4] relative flex items-center justify-center p-2.5">
+              <img
+                src={getThumbnailUrl(sub.visualUrl, 500, 75)}
+                alt={sub.brandName || sub.title}
+                loading="lazy"
+                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                style={{ objectPosition: sub.imagePosition || 'center' }}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+              {sub.pdfUrl && (
+                <span className="absolute top-2 left-2 bg-black/80 backdrop-blur text-white text-[8px] font-mono font-bold px-1.5 py-0.5 uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                  <FileText className="w-2 h-2 text-amber-400" /> Brand Kit
+                </span>
+              )}
             </div>
-            {sub.meta && (
-              <span className="font-mono text-[9px] text-black/50 uppercase tracking-wider block mb-1 truncate">
-                {sub.meta}
-              </span>
-            )}
-            {sub.instaLink && (
-              <a
-                href={sub.instaLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-[9px] font-mono text-[#007A93] hover:text-black transition-colors w-max mt-0.5"
-                onClick={e => e.stopPropagation()}
-              >
-                <Instagram className="w-3 h-3" />
-                <span className="uppercase tracking-wider">Instagram</span>
-              </a>
-            )}
+            <div className="p-3 sm:p-3.5 flex flex-col justify-between flex-1 border-t border-black/5 bg-white">
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-tight text-black truncate">
+                  {sub.brandName || sub.title}
+                </h4>
+                <ArrowUpRight className="w-3.5 h-3.5 text-black/30 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+              </div>
+              {sub.meta && (
+                <span className="font-mono text-[9px] text-black/50 uppercase tracking-wider block mb-1 truncate">
+                  {sub.meta}
+                </span>
+              )}
+              {sub.instaLink && (
+                <a
+                  href={sub.instaLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[9px] font-mono text-[#007A93] hover:text-black transition-colors w-max mt-0.5"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Instagram className="w-3 h-3" />
+                  <span className="uppercase tracking-wider">Instagram</span>
+                </a>
+              )}
+            </div>
           </div>
-        </div>
+        </SpatialCard3D>
       ))}
     </div>
   );
@@ -1327,29 +1345,30 @@ export default function ServiceInnerView({
   const renderShootGallery = () => (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
       {filteredSubsections.map((sub, idx) => (
-        <div
-          key={idx}
-          onClick={() => { setSelectedItem(sub); setActivePreviewUrl(sub.generatedVariants?.[0] || sub.visualUrl); }}
-          className="rounded-none overflow-hidden shadow-md border border-black/5 bg-[#eaeaea] group relative cursor-pointer aspect-[3/4]"
-        >
-          {sub.visualType === 'video' ? (
-            <div className="relative w-full h-full">
-              <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
-              <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
-            </div>
-          ) : (
-            <div className="relative w-full h-full">
-              <img
-                src={getThumbnailUrl(sub.visualUrl, 600, 75)}
-                alt={sub.title}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                style={{ objectPosition: sub.imagePosition || 'center' }}
-              />
-              <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-colors" />
-            </div>
-          )}
-        </div>
+        <SpatialCard3D key={idx} maxTilt={6} glareOpacity={0.12} scaleOnHover={1.02} className="w-full h-full">
+          <div
+            onClick={() => { setSelectedItem(sub); setActivePreviewUrl(sub.generatedVariants?.[0] || sub.visualUrl); }}
+            className="rounded-none overflow-hidden shadow-md border border-black/5 bg-[#eaeaea] group relative cursor-pointer aspect-[3/4] h-full"
+          >
+            {sub.visualType === 'video' || isVideoUrl(sub.visualUrl) ? (
+              <div className="relative w-full h-full">
+                <video src={sub.visualUrl} className="w-full h-full object-cover" muted loop playsInline autoPlay />
+                <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-colors" />
+              </div>
+            ) : (
+              <div className="relative w-full h-full">
+                <img
+                  src={getThumbnailUrl(sub.visualUrl, 600, 75)}
+                  alt={sub.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  style={{ objectPosition: sub.imagePosition || 'center' }}
+                />
+                <div className="absolute inset-0 bg-black/5 group-hover:bg-black/15 transition-colors" />
+              </div>
+            )}
+          </div>
+        </SpatialCard3D>
       ))}
     </div>
   );
@@ -1377,9 +1396,13 @@ export default function ServiceInnerView({
 
   // --- Brand Group Gallery for AI Shoots ---
   const renderBrandGallery = () => {
+    const categoryItems = service.id === 'ai-photo-shoot' && selectedCategory !== 'All'
+      ? service.subsections.filter(sub => (sub.subCategory || 'General') === selectedCategory)
+      : service.subsections;
+
     const brandsMap = new Map<string, ServiceSubsection[]>();
-    filteredSubsections.forEach(sub => {
-      const bName = sub.brandName || 'Other';
+    categoryItems.forEach(sub => {
+      const bName = sub.brandName?.trim() || sub.title?.trim() || 'Other';
       if (!brandsMap.has(bName)) {
         brandsMap.set(bName, []);
       }
@@ -1397,13 +1420,13 @@ export default function ServiceInnerView({
     }
 
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
         {brandEntries.map(([brandName, brandSubs]) => {
           const firstSub = brandSubs[0];
           const descriptor = getBrandDescriptor(brandName, firstSub);
 
           const handleBrandClick = () => {
-            if (brandSubs.length === 1) {
+            if (service.id === 'ai-video-shoot' && brandSubs.length === 1) {
               setSelectedItem(firstSub);
               setActivePreviewUrl(firstSub.generatedVariants?.[0] || firstSub.visualUrl);
             } else {
@@ -1412,33 +1435,37 @@ export default function ServiceInnerView({
           };
 
           return (
-            <div
-              key={brandName}
-              onClick={handleBrandClick}
-              className="group cursor-pointer rounded-none overflow-hidden bg-white border border-black/5 relative aspect-square shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col"
-            >
-              <div className="w-full flex-1 relative overflow-hidden">
-                <img
-                  src={getThumbnailUrl(firstSub.visualUrl, 600, 75)}
-                  alt={brandName}
-                  loading="lazy"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  style={{ objectPosition: firstSub.imagePosition || 'center' }}
-                />
-                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
-              </div>
-              <div className="p-4 bg-white border-t border-black/5 flex items-center justify-between gap-2">
-                <div className="flex items-baseline flex-wrap gap-1.5 min-w-0 pr-2">
-                  <span className="font-display font-bold uppercase text-black truncate">{brandName}</span>
-                  {descriptor && (
-                    <span className="text-[11px] sm:text-xs font-sans font-normal italic text-black/60 whitespace-nowrap">
-                      ({descriptor})
-                    </span>
-                  )}
+            <SpatialCard3D key={brandName} maxTilt={6} glareOpacity={0.12} scaleOnHover={1.02} className="w-full h-full">
+              <div
+                onClick={handleBrandClick}
+                className="group cursor-pointer rounded-none overflow-hidden bg-white border border-black/10 relative aspect-square shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full"
+              >
+                <div className="w-full flex-1 relative overflow-hidden bg-[#eaeaea]">
+                  <img
+                    src={getThumbnailUrl(firstSub.visualUrl, 600, 75)}
+                    alt={brandName}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    style={{ objectPosition: firstSub.imagePosition || 'center' }}
+                  />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-300" />
+                  <span className="absolute top-2.5 right-2.5 bg-black/80 backdrop-blur text-white text-[9px] font-mono font-bold px-2 py-0.5 uppercase tracking-wider">
+                    {brandSubs.length} {brandSubs.length === 1 ? 'Shoot' : 'Shoots'}
+                  </span>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-black/40 group-hover:text-black transition-colors shrink-0" />
+                <div className="p-3 sm:p-4 bg-white border-t border-black/5 flex items-center justify-between gap-2">
+                  <div className="flex items-baseline flex-wrap gap-1.5 min-w-0 pr-2">
+                    <span className="font-display font-bold uppercase text-black truncate text-sm sm:text-base">{brandName}</span>
+                    {descriptor && (
+                      <span className="text-[11px] sm:text-xs font-sans font-normal italic text-black/60 whitespace-nowrap">
+                        ({descriptor})
+                      </span>
+                    )}
+                  </div>
+                  <ArrowUpRight className="w-4 h-4 text-black/40 group-hover:text-black transition-colors shrink-0" />
+                </div>
               </div>
-            </div>
+            </SpatialCard3D>
           );
         })}
       </div>
@@ -1469,6 +1496,7 @@ export default function ServiceInnerView({
       case 'e-invitation': return renderImageOnlyCards();
       case 'catalog': return renderImageOnlyCards();
       case 'insta-grid-stories': return renderImageOnlyCards();
+      case 'ai-photo-shoot': return renderShootGallery();
       default:
         if (isShootService) {
           if (activeBrand) {

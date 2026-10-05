@@ -35,7 +35,7 @@ import { supabase } from '../lib/supabase';
 
 // Per-service category configs for admin
 const ADMIN_CATEGORIES: Record<string, string[]> = {
-  'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot'],
+  'ai-photo-shoot': ['Clothing Shoot', 'Footwear Shoot', 'Lifestyle Shoot', 'Marble Home Decore Shoot', 'Jewelry Shoot', 'Product Shoot'],
   'ai-video-shoot': [],
   'automation': [],
   'website-design': [],
@@ -433,12 +433,17 @@ export default function AdminPanel({
 
   const getExistingCategories = () => {
     if (isCategoryDisabled) return [];
-    const cats = new Set<string>();
+    const cats = new Set<string>(ADMIN_CATEGORIES['ai-photo-shoot'] || []);
     const svc = services.find(s => s.id === selectedServiceId);
     svc?.subsections?.forEach(sub => {
       if (sub.subCategory) cats.add(sub.subCategory);
     });
-    return Array.from(cats).length > 0 ? Array.from(cats) : ['General'];
+    if (svc?.categoryCoverImages) {
+      Object.keys(svc.categoryCoverImages).forEach(cat => {
+        if (cat) cats.add(cat);
+      });
+    }
+    return Array.from(cats).length > 0 ? Array.from(cats) : ['Clothing Shoot'];
   };
 
   const isNoTextService = ['e-invitation', 'catalog', 'insta-grid-stories'].includes(selectedServiceId);
@@ -2356,60 +2361,75 @@ export default function AdminPanel({
                     <div className="animate-fadeIn">
 
                   {/* #12 — Category Cover Images for Photo Shoot Service */}
-                  {services.filter(s => s.id === 'ai-photo-shoot').map(s => (
-                    <div key={`cover-${s.id}`} className="mb-8 bg-gray-50 border border-gray-200 p-6 rounded-none">
-                      <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-4">{s.name} — Category Cover Images</h4>
-                      <p className="text-xs text-gray-500 mb-4 font-sans">Set a custom cover image for each shoot category. This overrides the auto-detected first item.</p>
-                      <div className="space-y-3">
-                        {(ADMIN_CATEGORIES[s.id] || []).map(cat => {
-                          const currentCover = s.categoryCoverImages?.[cat] || '';
-                          return (
-                            <div key={cat} className="grid grid-cols-12 gap-4 items-center">
-                              <span className="col-span-3 text-xs font-mono font-bold text-gray-700 uppercase">{cat}</span>
-                              {currentCover && <img src={currentCover} alt={cat} className="col-span-2 w-full aspect-square object-cover border border-gray-200" />}
-                              <div className="col-span-5 flex gap-2">
-                                <input
-                                  type="text"
-                                  value={currentCover}
-                                  onChange={async (e) => {
-                                    const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: e.target.value } } : sv);
-                                    await updateServices(updatedServices);
-                                  }}
-                                  placeholder="Paste image URL..."
-                                  className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs focus:outline-none font-mono"
-                                />
-                              </div>
-                              <label className="col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 p-2 flex items-center justify-center text-center cursor-pointer transition-all select-none">
-                                {uploadingFile ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 text-gray-600" />}
-                                <input
-                                  type="file"
-                                  accept="image/*,video/*"
-                                  onChange={async (e) => {
-                                    const files = e.target.files;
-                                    if (!files || files.length === 0) return;
-                                    setUploadingFile(true);
-                                    try {
-                                      const file = files[0];
-                                      const fileExt = file.name.split('.').pop();
-                                      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-                                      const { error } = await supabase.storage.from('portfolio-media').upload(fileName, file, { cacheControl: '3600', upsert: false });
-                                      if (error) throw error;
-                                      const { data: { publicUrl } } = supabase.storage.from('portfolio-media').getPublicUrl(fileName);
-                                      const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: publicUrl } } : sv);
+                  {services.filter(s => s.id === 'ai-photo-shoot').map(s => {
+                    const allPhotoShootCategories = Array.from(new Set([
+                      ...(ADMIN_CATEGORIES[s.id] || []),
+                      ...((s.subsections || []).map(sub => sub.subCategory).filter(Boolean) as string[]),
+                      ...Object.keys(s.categoryCoverImages || {})
+                    ])).filter(Boolean);
+
+                    return (
+                      <div key={`cover-${s.id}`} className="mb-8 bg-gray-50 border border-gray-200 p-6 rounded-none">
+                        <h4 className="font-mono text-xs font-bold uppercase text-[#007A93] tracking-widest mb-2">{s.name} — Category Cover Images</h4>
+                        <p className="text-xs text-gray-500 mb-4 font-sans">Set a custom cover image for each shoot category. On the live site, clicking this category card directly opens all shoot cards under it.</p>
+                        <div className="space-y-3">
+                          {allPhotoShootCategories.map(cat => {
+                            const currentCover = s.categoryCoverImages?.[cat] || '';
+                            return (
+                              <div key={cat} className="grid grid-cols-12 gap-4 items-center bg-white p-3 border border-gray-200">
+                                <span className="col-span-3 text-xs font-mono font-bold text-gray-800 uppercase truncate" title={cat}>{cat}</span>
+                                {currentCover ? (
+                                  <img src={currentCover} alt={cat} className="col-span-2 w-14 h-14 object-cover border border-gray-300" />
+                                ) : (
+                                  <div className="col-span-2 w-14 h-14 bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-[9px] font-mono text-gray-400 uppercase text-center p-1">
+                                    Auto First
+                                  </div>
+                                )}
+                                <div className="col-span-5 flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={currentCover}
+                                    onChange={async (e) => {
+                                      const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: e.target.value } } : sv);
                                       await updateServices(updatedServices);
-                                      triggerToast(`Cover for "${cat}" updated!`);
-                                    } catch (err) { triggerToast('Upload failed.'); }
-                                    finally { setUploadingFile(false); }
-                                  }}
-                                  className="hidden"
-                                />
-                              </label>
-                            </div>
-                          );
-                        })}
+                                    }}
+                                    placeholder="Paste image URL..."
+                                    className="flex-1 bg-gray-50 border border-gray-300 rounded-none px-3 py-2 text-xs focus:outline-none font-mono text-gray-900"
+                                  />
+                                </div>
+                                <label className="col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-300 p-2 flex items-center justify-center text-center cursor-pointer transition-all select-none">
+                                  {uploadingFile ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 text-gray-600" />}
+                                  <span className="text-[9px] font-mono font-bold uppercase ml-1.5 hidden sm:inline">Upload</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    onChange={async (e) => {
+                                      const files = e.target.files;
+                                      if (!files || files.length === 0) return;
+                                      setUploadingFile(true);
+                                      try {
+                                        const file = files[0];
+                                        const fileExt = file.name.split('.').pop();
+                                        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                                        const { error } = await supabase.storage.from('portfolio-media').upload(fileName, file, { cacheControl: '3600', upsert: false });
+                                        if (error) throw error;
+                                        const { data: { publicUrl } } = supabase.storage.from('portfolio-media').getPublicUrl(fileName);
+                                        const updatedServices = services.map(sv => sv.id === s.id ? { ...sv, categoryCoverImages: { ...(sv.categoryCoverImages || {}), [cat]: publicUrl } } : sv);
+                                        await updateServices(updatedServices);
+                                        triggerToast(`Cover for "${cat}" updated!`);
+                                      } catch (err) { triggerToast('Upload failed.'); }
+                                      finally { setUploadingFile(false); }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-4">
                     <p className="text-xs text-gray-500 font-sans">
@@ -2539,11 +2559,18 @@ export default function AdminPanel({
                                       />
                                       <div className="overflow-hidden">
                                         <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
-                                        {sub.meta && (
-                                          <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
-                                            Artifact / Tag: <span className="text-gray-600 font-semibold">{sub.meta}</span>
-                                          </span>
-                                        )}
+                                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                          {sub.brandName && (
+                                            <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 border border-[#007A93]/20 font-bold uppercase">
+                                              Brand: {sub.brandName}
+                                            </span>
+                                          )}
+                                          {sub.meta && (
+                                            <span className="font-sans text-[10px] text-gray-500">
+                                              Artifact / Tag: <span className="text-gray-700 font-semibold">{sub.meta}</span>
+                                            </span>
+                                          )}
+                                        </div>
                                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                                           <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
                                             {sub.visualType || 'image'}
@@ -2720,13 +2747,35 @@ export default function AdminPanel({
                                               />
                                               <div className="overflow-hidden">
                                                 <h5 className="font-sans text-xs font-bold text-gray-900 truncate">{sub.title}</h5>
-                                                <span className="font-sans text-[10px] text-gray-500 block mt-0.5">
-                                                  Category: <span className="text-gray-600 font-semibold">{sub.subCategory || 'General'}</span>
-                                                </span>
+                                                <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                                  <span className="font-sans text-[10px] text-gray-500">
+                                                    Category: <span className="text-gray-800 font-semibold">{sub.subCategory || 'General'}</span>
+                                                  </span>
+                                                  {sub.brandName && (
+                                                    <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 border border-[#007A93]/20 font-bold uppercase">
+                                                      Brand: {sub.brandName}
+                                                    </span>
+                                                  )}
+                                                </div>
                                                 <div className="flex items-center gap-1.5 flex-wrap mt-1">
                                                   <span className="font-mono text-[9px] text-[#007A93] bg-[#007A93]/10 px-1.5 py-0.5 tracking-wider uppercase font-semibold">
                                                     {sub.visualType || 'image'}
                                                   </span>
+                                                  {sub.isComparisonMode && (
+                                                    <span className="font-mono text-[8px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.5 tracking-wider uppercase font-bold">
+                                                      1:1 Comparison
+                                                    </span>
+                                                  )}
+                                                  {sub.originalUrls && sub.originalUrls.length > 0 && (
+                                                    <span className="font-mono text-[8px] text-gray-700 bg-gray-100 border border-gray-300 px-1 py-0.5 tracking-wider uppercase">
+                                                      Orig: {sub.originalUrls.length}
+                                                    </span>
+                                                  )}
+                                                  {sub.generatedVariants && sub.generatedVariants.length > 0 && (
+                                                    <span className="font-mono text-[8px] text-teal-700 bg-teal-50 border border-teal-200 px-1 py-0.5 tracking-wider uppercase">
+                                                      Shoot: {sub.generatedVariants.length}
+                                                    </span>
+                                                  )}
                                                   {sub.imagePosition && (
                                                     <span className="font-mono text-[8px] text-gray-700 bg-gray-200 border border-gray-300 px-1 py-0.5 tracking-wider uppercase font-bold">
                                                       Crop: {sub.imagePosition}
