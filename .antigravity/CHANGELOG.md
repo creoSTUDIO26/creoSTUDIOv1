@@ -1,5 +1,12 @@
 # CHANGELOG.md
 
+## [2026-10-05 17:39] — Deployed updates to GitHub main branch
+- Action:
+  - Committed and pushed all recent changes to `origin/main` on `https://github.com/creoSTUDIO26/creoSTUDIOv1.git`.
+  - Includes: lightweight 3D spatial cards & hero emblem, direct photoshoot category gallery flow, compact brand building cards, and admin panel alignment.
+- Reason: User requested deploying to GitHub.
+- Type: config | deployment
+
 ## [2026-10-05 17:37] — Aligned Admin Panel with Photo Shoot category and work management rules
 - Action:
   - In `src/components/AdminPanel.tsx`:
