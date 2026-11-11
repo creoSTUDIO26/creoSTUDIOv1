@@ -1,0 +1,13 @@
+name: Keep Supabase Alive
+on:
+  schedule:
+    - cron: "0 8 */3 * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -f "${{ secrets.https://pnqpptimjuvwacfkhuib.supabase.co }}/rest/v1/keep_alive?select=id&limit=1" \
+            -H "apikey: ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBucXBwdGltanV2d2FjZmtodWliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTI5MjksImV4cCI6MjA5ODMyODkyOX0.CXVK_iUcznBF-5RBmaTX2q2g1gVOtzPLalETA9BFhVc }}" \
+            -H "Authorization: Bearer ${{ secrets.eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBucXBwdGltanV2d2FjZmtodWliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3NTI5MjksImV4cCI6MjA5ODMyODkyOX0.CXVK_iUcznBF-5RBmaTX2q2g1gVOtzPLalETA9BFhVc }}"
